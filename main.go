@@ -26,6 +26,14 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Open logfile
+	logfile, err := os.OpenFile(config.LogPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		fmt.Println("Error opening log file " + config.LogPath + ".")
+		os.Exit(2)
+	}
+	defer logfile.Close()
+
 	// Read TLS files, create TLS config
 	cert, err := tls.LoadX509KeyPair(config.CertPath, config.KeyPath)
 	if err != nil {
@@ -44,13 +52,22 @@ func main() {
 	}
 	defer listener.Close()
 
+	// Start log handling routine
+	logEntries := make(chan LogEntry, 10)
+	go func () {
+		for {
+			entry := <- logEntries
+			writeLogEntry(logfile, entry)
+		}
+	}()
+
 	// Infinite serve loop
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
 			log.Fatal(err)
 		}
-		go handleGeminiRequest(conn, config)
+		go handleGeminiRequest(conn, config, logEntries)
 	}
 
 }
