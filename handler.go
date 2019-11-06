@@ -41,6 +41,20 @@ func handleGeminiRequest(conn net.Conn, config Config, logEntries chan LogEntry)
 		return
 	}
 	log.RequestURL = URL.String()
+
+	// Set implicit scheme
+	if URL.Scheme == "" {
+		URL.Scheme = "gemini"
+	}
+
+	// Reject non-gemini schemes
+	if URL.Scheme != "gemini" {
+		conn.Write([]byte("53 No proxying to non-Gemini content!\r\n"))
+		log.Status = 53
+		logEntries <- log
+		return
+	}
+
 	// Generic response
 	conn.Write([]byte("20 text/gemini\r\n"))
 	body := fmt.Sprintf("Molly at %s says \"Hi!\" from %s.\n", URL.Host, URL.Path)
