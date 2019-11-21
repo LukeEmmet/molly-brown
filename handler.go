@@ -57,6 +57,13 @@ func handleGeminiRequest(conn net.Conn, config Config, logEntries chan LogEntry)
 		return
 	}
 
+	// Reject requests for content from other servers
+	if URL.Host != config.Hostname {
+		conn.Write([]byte("53 No proxying to other hosts!\r\n"))
+		log.Status = 53
+		return
+	}
+
 	// Fail if there are dots in the path
 	if strings.Contains(URL.Path, "..") {
 		conn.Write([]byte("50 Your directory traversal technique has been defeated!\r\n"))
