@@ -156,6 +156,10 @@ func generateDirectoryListing(path string) string {
 	}
 	listing = "# Directory listing\n\n"
 	for _, file := range files {
+		// Skip dotfiles
+		if strings.HasPrefix(file.Name(), ".") {
+			continue
+		}
 		// Only list world readable files
 		if uint64(file.Mode().Perm())&0444 != 0444 {
 			continue
