@@ -16,7 +16,7 @@ type LogEntry struct {
 
 func writeLogEntry(fp *os.File, entry LogEntry) {
 	var line string
-	line = "[" + entry.Time.Format(time.UnixDate)+ "]"
+	line = entry.Time.Format(time.RFC3339)
 	line += "\t" + strconv.Itoa(entry.Status)
 	line += "\t" + entry.RemoteAddr.String()
 	line += "\t" + entry.RequestURL
