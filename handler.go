@@ -3,12 +3,14 @@ package main
 import (
 		"bufio"
 		"fmt"
+		"io"
 		"io/ioutil"
 		"log"
 		"mime"
 		"net"
 		"net/url"
 		"os"
+		"os/exec"
 		"path/filepath"
 		"strings"
 		"time"
@@ -120,25 +122,46 @@ func handleGeminiRequest(conn net.Conn, config Config, logEntries chan LogEntry)
 		log.Status = 20
 		conn.Write([]byte(generateDirectoryListing(path)))
 		return
-	}
-
-	// Get MIME type of files
-	ext := filepath.Ext(path)
-	var mimeType string
-	if ext == ".gmi" {
-		mimeType = "text/gemini"
+	// If this file is executable, get dynamic content
+	} else if info.Mode().Perm() & 0111 == 0111 {
+		cmd := exec.Command(path)
+		stdin, err := cmd.StdinPipe()
+		if err != nil {
+			conn.Write([]byte("42 CGI error!\r\n"))
+			log.Status = 42
+			return
+		}
+		defer stdin.Close()
+		io.WriteString(stdin, URL.String())
+		io.WriteString(stdin, "\r\n")
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			conn.Write([]byte("42 CGI error!\r\n"))
+			log.Status = 42
+			return
+		}
+		conn.Write([]byte(out))
+		log.Status = 20 // Do this properly!
+	// Otherwise, serve the file contents
 	} else {
-		mimeType = mime.TypeByExtension(ext)
-	}
-	fmt.Println(path, ext, mimeType)
-	contents, err := ioutil.ReadFile(path)
-	if err != nil {
-		conn.Write([]byte("50 Error!\r\n"))
-		log.Status = 50
-	} else {
-		conn.Write([]byte(fmt.Sprintf("20 %s\r\n", mimeType)))
-		log.Status = 20
-		conn.Write(contents)
+		// Get MIME type of files
+		ext := filepath.Ext(path)
+		var mimeType string
+		if ext == ".gmi" {
+			mimeType = "text/gemini"
+		} else {
+			mimeType = mime.TypeByExtension(ext)
+		}
+		fmt.Println(path, ext, mimeType)
+		contents, err := ioutil.ReadFile(path)
+		if err != nil {
+			conn.Write([]byte("50 Error!\r\n"))
+			log.Status = 50
+		} else {
+			conn.Write([]byte(fmt.Sprintf("20 %s\r\n", mimeType)))
+			log.Status = 20
+			conn.Write(contents)
+		}
 	}
 	return
 
