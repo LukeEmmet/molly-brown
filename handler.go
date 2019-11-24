@@ -2,6 +2,7 @@ package main
 
 import (
 		"bufio"
+		"context"
 		"fmt"
 		"io"
 		"io/ioutil"
@@ -124,7 +125,9 @@ func handleGeminiRequest(conn net.Conn, config Config, logEntries chan LogEntry)
 		return
 	// If this file is executable, get dynamic content
 	} else if info.Mode().Perm() & 0111 == 0111 {
-		cmd := exec.Command(path)
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		cmd := exec.CommandContext(ctx, path)
 		stdin, err := cmd.StdinPipe()
 		if err != nil {
 			conn.Write([]byte("42 CGI error!\r\n"))
@@ -134,7 +137,12 @@ func handleGeminiRequest(conn net.Conn, config Config, logEntries chan LogEntry)
 		defer stdin.Close()
 		io.WriteString(stdin, URL.String())
 		io.WriteString(stdin, "\r\n")
-		out, err := cmd.CombinedOutput()
+		out, err := cmd.Output()
+		if ctx.Err() == context.DeadlineExceeded {
+			conn.Write([]byte("42 CGI process timed out!\r\n"))
+			log.Status = 42
+			return
+		}
 		if err != nil {
 			conn.Write([]byte("42 CGI error!\r\n"))
 			log.Status = 42
