@@ -137,6 +137,7 @@ func handleGeminiRequest(conn net.Conn, config Config, logEntries chan LogEntry)
 		defer stdin.Close()
 		io.WriteString(stdin, URL.String())
 		io.WriteString(stdin, "\r\n")
+		stdin.Close()
 		out, err := cmd.Output()
 		if ctx.Err() == context.DeadlineExceeded {
 			conn.Write([]byte("42 CGI process timed out!\r\n"))
