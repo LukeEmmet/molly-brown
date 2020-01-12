@@ -13,6 +13,7 @@ import (
 		"os"
 		"os/exec"
 		"path/filepath"
+		"strconv"
 		"strings"
 		"time"
 )
@@ -138,7 +139,7 @@ func handleGeminiRequest(conn net.Conn, config Config, logEntries chan LogEntry)
 		io.WriteString(stdin, URL.String())
 		io.WriteString(stdin, "\r\n")
 		stdin.Close()
-		out, err := cmd.Output()
+		response, err := cmd.Output()
 		if ctx.Err() == context.DeadlineExceeded {
 			conn.Write([]byte("42 CGI process timed out!\r\n"))
 			log.Status = 42
@@ -149,8 +150,18 @@ func handleGeminiRequest(conn net.Conn, config Config, logEntries chan LogEntry)
 			log.Status = 42
 			return
 		}
-		conn.Write([]byte(out))
-		log.Status = 20 // Do this properly!
+		// Extract response header
+		header, _, err := bufio.NewReader(strings.NewReader(string(response))).ReadLine()
+		status, err2 := strconv.Atoi(strings.Fields(string(header))[0])
+		if err != nil || err2 != nil {
+			conn.Write([]byte("42 CGI error!\r\n"))
+			log.Status = 42
+			return
+		}
+		log.Status = status
+		// Write response
+		conn.Write(response)
+
 	// Otherwise, serve the file contents
 	} else {
 		// Get MIME type of files
