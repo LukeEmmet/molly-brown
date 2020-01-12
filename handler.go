@@ -13,6 +13,7 @@ import (
 		"os"
 		"os/exec"
 		"path/filepath"
+		"regexp"
 		"strconv"
 		"strings"
 		"time"
@@ -124,8 +125,10 @@ func handleGeminiRequest(conn net.Conn, config Config, logEntries chan LogEntry)
 		log.Status = 20
 		conn.Write([]byte(generateDirectoryListing(path)))
 		return
+	}
 	// If this file is executable, get dynamic content
-	} else if info.Mode().Perm() & 0111 == 0111 {
+	inCGIPath, err := regexp.Match(config.CGIPath, []byte(path))
+	if inCGIPath && info.Mode().Perm() & 0111 == 0111 {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		cmd := exec.CommandContext(ctx, path)

@@ -12,6 +12,7 @@ type Config struct {
 	DocBase            string
 	HomeDocBase        string
 	LogPath            string
+	CGIPath            string
 }
 
 func getConfig(filename string) (Config, error) {
@@ -26,6 +27,7 @@ func getConfig(filename string) (Config, error) {
 	config.DocBase = "/var/gemini/"
 	config.HomeDocBase = "users"
 	config.LogPath = "molly.log"
+	config.CGIPath = "^/var/gemini/cgi-bin/"
 
 	// Return defaults if no filename given
 	if filename == "" {
