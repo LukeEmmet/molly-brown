@@ -20,7 +20,7 @@ func getConfig(filename string) (Config, error) {
 	var config Config
 
 	// Defaults
-	config.Port = 196
+	config.Port = 1965
 	config.Hostname = "localhost"
 	config.CertPath = "cert.pem"
 	config.KeyPath = "key.pem"
