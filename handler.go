@@ -108,9 +108,13 @@ func handleGeminiRequest(conn net.Conn, config Config, logEntries chan LogEntry)
 		// Add index.gmi to directory paths, if it exists
 		index_path := filepath.Join(path, "index.gmi")
 		index_info, err := os.Stat(index_path)
-		if !os.IsNotExist(err) {
+		if err == nil {
 			path = index_path
 			info = index_info
+		} else if os.IsPermission(err) {
+			conn.Write([]byte("51 Not found!\r\n"))
+			log.Status = 51
+			return
 		}
 	}
 	// Fail if file is not world readable
