@@ -215,7 +215,7 @@ func generateDirectoryListing(path string) string {
 		if uint64(file.Mode().Perm())&0444 != 0444 {
 			continue
 		}
-		listing += fmt.Sprintf("=> %s %s\n", file.Name(), file.Name())
+		listing += fmt.Sprintf("=> %s %s\n", url.PathEscape(file.Name()), file.Name())
 	}
 	return listing
 }
