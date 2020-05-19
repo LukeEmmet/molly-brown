@@ -45,7 +45,7 @@ func main() {
 	}
 
 	// Create TLS listener
-	listener, err := tls.Listen("tcp", ":1965", tlscfg)
+	listener, err := tls.Listen("tcp", ":" + strconv.Itoa(config.Port), tlscfg)
 	if err != nil {
 		fmt.Println(err)
 		return
