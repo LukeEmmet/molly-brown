@@ -45,14 +45,22 @@ Currently Molly Brown just runs like an ordinary program, without
 daemonising itself.  You'll need to use another program, like the one
 at `http://libslack.org/daemon/`, to handle daemonising.
 
-Currently Molly Brown is not integrated with any kind of init system,
-so you'll have to handle getting it to start on boot up yourself.  If
-you are using a sufficiently right-headed operating system, the
-easiest way to do this is by putting your call to `daemon` (or
-whatever else you use) in `/etc/rc.local`.
+Currently Molly Brown is only integrated with systemd, so if you're
+using anything else you'll have to handle getting it to start on boot up
+yourself.  If you are using a sufficiently right-headed operating
+system, the easiest way to do this is by putting your call to
+`daemon` (or whatever else you use) in `/etc/rc.local`.
 
-If you write a working systemd unit file for Molly Brown, please feel
-free to share it with me and I'll get it into the repo.
+Setting up with systemd should be reasonably easy; copy
+`molly-brown.service.example` from this directory to
+`/etc/systemd/system/molly-brown.service`. Then, make any necessary
+changes for your setup, and run the following:
+
+```sh
+# systemctl daemon-reload
+# systemctl enable molly-brown.service
+# systemctl start molly-brown.service
+```
 
 Note that Golang programs are unable to reliably change their UID once
 run (a source of constant frustration to me!).  So don't start it as
