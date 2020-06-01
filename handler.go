@@ -192,11 +192,6 @@ func handleGeminiRequest(conn net.Conn, config Config, logEntries chan LogEntry)
 	}
 	return
 
-	// Generic response
-	conn.Write([]byte("20 text/gemini\r\n"))
-	body := fmt.Sprintf("Molly at %s says \"Hi!\" from %s.\n", URL.Host, URL.Path)
-	conn.Write([]byte(body))
-	log.Status = 20
 }
 
 func generateDirectoryListing(path string) string {
