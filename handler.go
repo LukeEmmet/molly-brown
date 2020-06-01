@@ -94,6 +94,10 @@ func handleGeminiRequest(conn net.Conn, config Config, logEntries chan LogEntry)
 		conn.Write([]byte("51 Not found!\r\n"))
 		log.Status = 51
 		return
+	} else if err != nil {
+		conn.Write([]byte("40 Temporaray failure!\r\n"))
+		log.Status = 40
+		return
 	}
 
 	// Handle URLS which map to a directory
