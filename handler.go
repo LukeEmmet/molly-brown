@@ -106,6 +106,14 @@ func handleGeminiRequest(conn net.Conn, config Config, logEntries chan LogEntry)
 		return
 	}
 
+	// Paranoid security measure:
+	// Fail if the URL has mapped to our TLS files or the log
+	if path == config.CertPath || path == config.KeyPath || path == config.LogPath {
+		conn.Write([]byte("51 Not found!\r\n"))
+		log.Status = 51
+		return
+	}
+
 	// Handle directories
 	if info.IsDir() {
 		// Redirect to add trailing slash if missing
