@@ -24,6 +24,7 @@ func main() {
 	config, err := getConfig(conf_file)
 	if err != nil {
 		fmt.Println("Error reading config file " + conf_file)
+		fmt.Println(err)
 		os.Exit(1)
 	}
 
