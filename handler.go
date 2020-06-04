@@ -190,6 +190,11 @@ func serveFile(path string, log LogEntry, conn net.Conn) {
 	} else {
 		mimeType = mime.TypeByExtension(ext)
 	}
+	// Set a generic MIME type if the extension wasn't recognised
+	if mimeType == "" {
+		mimeType = "application/octet-stream"
+	}
+
 	contents, err := ioutil.ReadFile(path)
 	if err != nil {
 		conn.Write([]byte("50 Error!\r\n"))
