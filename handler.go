@@ -115,10 +115,17 @@ func handleGeminiRequest(conn net.Conn, config Config, logEntries chan LogEntry)
 			log.Status = 31
 			return
 		}
+		// Check for index.gmi if path is a directory
+		index_path := filepath.Join(path, "index.gmi")
+		index_info, err := os.Stat(index_path)
+		if err == nil && uint64(index_info.Mode().Perm())&0444 == 0444 {
+			serveFile(index_path, log, conn)
 		// Serve a generated listing
-		conn.Write([]byte("20 text/gemini\r\n"))
-		log.Status = 20
-		conn.Write([]byte(generateDirectoryListing(path)))
+		} else {
+			conn.Write([]byte("20 text/gemini\r\n"))
+			log.Status = 20
+			conn.Write([]byte(generateDirectoryListing(path)))
+		}
 		return
 	}
 
@@ -149,17 +156,6 @@ func resolvePath(path string, config Config) (string, os.FileInfo, error) {
 	info, err := os.Stat(path)
 	if err != nil {
 		return "", nil, err
-	}
-	// Check for index.gmi if path is a directory
-	if info.IsDir() {
-		index_path := filepath.Join(path, "index.gmi")
-		index_info, err := os.Stat(index_path)
-		if err == nil {
-			path = index_path
-			info = index_info
-		} else if os.IsPermission(err) {
-			return "", nil, err
-		}
 	}
 	return path, info, nil
 }
