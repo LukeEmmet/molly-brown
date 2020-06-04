@@ -13,6 +13,7 @@ type Config struct {
 	HomeDocBase        string
 	LogPath            string
 	CGIPath            string
+	SCGIPaths          map[string]string
 }
 
 func getConfig(filename string) (Config, error) {
@@ -28,6 +29,7 @@ func getConfig(filename string) (Config, error) {
 	config.HomeDocBase = "users"
 	config.LogPath = "molly.log"
 	config.CGIPath = "^/var/gemini/cgi-bin/"
+	config.SCGIPaths = make(map[string]string)
 
 	// Return defaults if no filename given
 	if filename == "" {

@@ -77,6 +77,15 @@ func handleGeminiRequest(conn net.Conn, config Config, logEntries chan LogEntry)
 		return
 	}
 
+	// Check whether this URL is mapped to an SCGI app
+	for scgi_url, scgi_socket := range config.SCGIPaths {
+		fmt.Println(scgi_url, URL.Path)
+	    matched, err := regexp.Match(scgi_url, []byte(URL.Path))
+		if matched && err == nil {
+		    fmt.Println("Matched:", scgi_url, scgi_socket)
+			handleSCGI(URL, log, conn)
+			return
+		}
 	}
 
 	// Resolve URI path to actual filesystem path
@@ -233,3 +242,8 @@ func handleCGI(path string, URL *url.URL, log LogEntry, conn net.Conn) {
 	conn.Write(response)
 }
 
+func handleSCGI(URL *url.URL, log LogEntry, conn net.Conn) {
+	conn.Write([]byte("42 SCGI is only stubbed!\r\n"))
+	log.Status = 42
+	return
+}
