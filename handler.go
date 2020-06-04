@@ -77,19 +77,12 @@ func handleGeminiRequest(conn net.Conn, config Config, logEntries chan LogEntry)
 		return
 	}
 
-	// Resolve URI path to actual filesystem path
-	path := URL.Path
-	if strings.HasPrefix(path, "/~") {
-	    bits := strings.Split(path, "/")
-		username := bits[1][1:]
-		new_prefix := filepath.Join(config.DocBase, config.HomeDocBase, username)
-		path = strings.Replace(path, bits[1], new_prefix, 1)
-	} else {
-		path = filepath.Join(config.DocBase, URL.Path)
 	}
 
-	// Fail if file does not exist or we may not read it
-	info, err := os.Stat(path)
+	// Resolve URI path to actual filesystem path
+	path, info, err := resolvePath(URL.Path, config)
+
+	// Fail if file does not exist or perms aren't right
 	if os.IsNotExist(err) || os.IsPermission(err) {
 		conn.Write([]byte("51 Not found!\r\n"))
 		log.Status = 51
@@ -98,9 +91,13 @@ func handleGeminiRequest(conn net.Conn, config Config, logEntries chan LogEntry)
 		conn.Write([]byte("40 Temporaray failure!\r\n"))
 		log.Status = 40
 		return
+	} else if uint64(info.Mode().Perm())&0444 != 0444 {
+		conn.Write([]byte("51 Not found!\r\n"))
+		log.Status = 51
+		return
 	}
 
-	// Handle URLS which map to a directory
+	// Handle directories
 	if info.IsDir() {
 		// Redirect to add trailing slash if missing
 		// (otherwise relative links don't work properly)
@@ -109,93 +106,53 @@ func handleGeminiRequest(conn net.Conn, config Config, logEntries chan LogEntry)
 			log.Status = 31
 			return
 		}
-		// Add index.gmi to directory paths, if it exists
+		// Serve a generated listing
+		conn.Write([]byte("20 text/gemini\r\n"))
+		log.Status = 20
+		conn.Write([]byte(generateDirectoryListing(path)))
+		return
+	}
+
+	// If this file is executable, get dynamic content
+	inCGIPath, err := regexp.Match(config.CGIPath, []byte(path))
+	if inCGIPath && info.Mode().Perm() & 0111 == 0111 {
+		handleCGI(path, URL, log, conn)
+		return
+	}
+
+	// Otherwise, serve the file contents
+	serveFile(path, log, conn)
+	return
+
+}
+
+func resolvePath(path string, config Config) (string, os.FileInfo, error) {
+	// Handle tildes
+	if strings.HasPrefix(path, "/~") {
+	    bits := strings.Split(path, "/")
+		username := bits[1][1:]
+		new_prefix := filepath.Join(config.DocBase, config.HomeDocBase, username)
+		path = strings.Replace(path, bits[1], new_prefix, 1)
+	} else {
+		path = filepath.Join(config.DocBase, path)
+	}
+	// Make sure this file exists and is readable
+	info, err := os.Stat(path)
+	if err != nil {
+		return "", nil, err
+	}
+	// Check for index.gmi if path is a directory
+	if info.IsDir() {
 		index_path := filepath.Join(path, "index.gmi")
 		index_info, err := os.Stat(index_path)
 		if err == nil {
 			path = index_path
 			info = index_info
 		} else if os.IsPermission(err) {
-			conn.Write([]byte("51 Not found!\r\n"))
-			log.Status = 51
-			return
+			return "", nil, err
 		}
 	}
-	// Fail if file is not world readable
-	if uint64(info.Mode().Perm())&0444 != 0444 {
-		conn.Write([]byte("51 Not found!\r\n"))
-		log.Status = 51
-		return
-	}
-	// If this is a directory, serve a generated listing
-	if info.IsDir() {
-		conn.Write([]byte("20 text/gemini\r\n"))
-		log.Status = 20
-		conn.Write([]byte(generateDirectoryListing(path)))
-		return
-	}
-	// If this file is executable, get dynamic content
-	inCGIPath, err := regexp.Match(config.CGIPath, []byte(path))
-	if inCGIPath && info.Mode().Perm() & 0111 == 0111 {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		cmd := exec.CommandContext(ctx, path)
-		stdin, err := cmd.StdinPipe()
-		if err != nil {
-			conn.Write([]byte("42 CGI error!\r\n"))
-			log.Status = 42
-			return
-		}
-		defer stdin.Close()
-		io.WriteString(stdin, URL.String())
-		io.WriteString(stdin, "\r\n")
-		stdin.Close()
-		response, err := cmd.Output()
-		if ctx.Err() == context.DeadlineExceeded {
-			conn.Write([]byte("42 CGI process timed out!\r\n"))
-			log.Status = 42
-			return
-		}
-		if err != nil {
-			conn.Write([]byte("42 CGI error!\r\n"))
-			log.Status = 42
-			return
-		}
-		// Extract response header
-		header, _, err := bufio.NewReader(strings.NewReader(string(response))).ReadLine()
-		status, err2 := strconv.Atoi(strings.Fields(string(header))[0])
-		if err != nil || err2 != nil {
-			conn.Write([]byte("42 CGI error!\r\n"))
-			log.Status = 42
-			return
-		}
-		log.Status = status
-		// Write response
-		conn.Write(response)
-
-	// Otherwise, serve the file contents
-	} else {
-		// Get MIME type of files
-		ext := filepath.Ext(path)
-		var mimeType string
-		if ext == ".gmi" {
-			mimeType = "text/gemini"
-		} else {
-			mimeType = mime.TypeByExtension(ext)
-		}
-		fmt.Println(path, ext, mimeType)
-		contents, err := ioutil.ReadFile(path)
-		if err != nil {
-			conn.Write([]byte("50 Error!\r\n"))
-			log.Status = 50
-		} else {
-			conn.Write([]byte(fmt.Sprintf("20 %s\r\n", mimeType)))
-			log.Status = 20
-			conn.Write(contents)
-		}
-	}
-	return
-
+	return path, info, nil
 }
 
 func generateDirectoryListing(path string) string {
@@ -218,3 +175,61 @@ func generateDirectoryListing(path string) string {
 	}
 	return listing
 }
+
+func serveFile(path string, log LogEntry, conn net.Conn) {
+	// Get MIME type of files
+	ext := filepath.Ext(path)
+	var mimeType string
+	if ext == ".gmi" {
+		mimeType = "text/gemini"
+	} else {
+		mimeType = mime.TypeByExtension(ext)
+	}
+	contents, err := ioutil.ReadFile(path)
+	if err != nil {
+		conn.Write([]byte("50 Error!\r\n"))
+		log.Status = 50
+	}
+	conn.Write([]byte(fmt.Sprintf("20 %s\r\n", mimeType)))
+	log.Status = 20
+	conn.Write(contents)
+}
+
+func handleCGI(path string, URL *url.URL, log LogEntry, conn net.Conn) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, path)
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		conn.Write([]byte("42 CGI error!\r\n"))
+		log.Status = 42
+		return
+	}
+	defer stdin.Close()
+	io.WriteString(stdin, URL.String())
+	io.WriteString(stdin, "\r\n")
+	stdin.Close()
+	response, err := cmd.Output()
+	if ctx.Err() == context.DeadlineExceeded {
+		conn.Write([]byte("42 CGI process timed out!\r\n"))
+		log.Status = 42
+		return
+	}
+	if err != nil {
+		conn.Write([]byte("42 CGI error!\r\n"))
+		log.Status = 42
+		return
+	}
+	// Extract response header
+	header, _, err := bufio.NewReader(strings.NewReader(string(response))).ReadLine()
+	status, err2 := strconv.Atoi(strings.Fields(string(header))[0])
+	if err != nil || err2 != nil {
+		conn.Write([]byte("42 CGI error!\r\n"))
+		log.Status = 42
+		return
+	}
+	log.Status = status
+	// Write response
+	conn.Write(response)
+}
+
