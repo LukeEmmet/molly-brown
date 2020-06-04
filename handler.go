@@ -132,7 +132,7 @@ func handleGeminiRequest(conn net.Conn, config Config, logEntries chan LogEntry)
 	// If this file is executable, get dynamic content
 	inCGIPath, err := regexp.Match(config.CGIPath, []byte(path))
 	if inCGIPath && info.Mode().Perm() & 0111 == 0111 {
-		handleCGI(path, URL, log, conn)
+		handleCGI(config, path, URL, log, conn)
 		return
 	}
 
@@ -200,20 +200,23 @@ func serveFile(path string, log LogEntry, conn net.Conn) {
 	conn.Write(contents)
 }
 
-func handleCGI(path string, URL *url.URL, log LogEntry, conn net.Conn) {
+func handleCGI(config Config, path string, URL *url.URL, log LogEntry, conn net.Conn) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, path)
-	stdin, err := cmd.StdinPipe()
-	if err != nil {
-		conn.Write([]byte("42 CGI error!\r\n"))
-		log.Status = 42
-		return
+	// Set environment variables
+	cmd.Env = []string{
+		"GATEWAY_INTERFACE=CGI/1.1",
+		"PATH_INFO=/",
+		"QUERY_STRING=" + URL.RawQuery,
+		"REMOTE_ADDR=" + conn.RemoteAddr().String(),
+		"REQUEST_METHOD=",
+		"SCRIPT_PATH=" + path,
+		"SERVER_NAME=" + config.Hostname,
+		"SERVER_PORT=" + strconv.Itoa(config.Port),
+		"SERVER_PROTOCL=GEMINI",
+		"SERVER_SOFTWARE=MOLLY_BROWN",
 	}
-	defer stdin.Close()
-	io.WriteString(stdin, URL.String())
-	io.WriteString(stdin, "\r\n")
-	stdin.Close()
 	response, err := cmd.Output()
 	if ctx.Err() == context.DeadlineExceeded {
 		conn.Write([]byte("42 CGI process timed out!\r\n"))
