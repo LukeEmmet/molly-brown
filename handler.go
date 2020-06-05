@@ -32,11 +32,11 @@ func handleGeminiRequest(conn net.Conn, config Config, logEntries chan LogEntry)
 	reader := bufio.NewReaderSize(conn, 1024)
 	request, overflow, err := reader.ReadLine()
 	if overflow {
-		conn.Write([]byte("59 Request too long!r\n"))
+		conn.Write([]byte("59 Request too long!\r\n"))
 		log.Status = 59
 		return
 	} else if err != nil {
-		conn.Write([]byte("40 Unknown error reading request!r\n"))
+		conn.Write([]byte("40 Unknown error reading request!\r\n"))
 		log.Status = 40
 		return
 	}
@@ -44,7 +44,7 @@ func handleGeminiRequest(conn net.Conn, config Config, logEntries chan LogEntry)
 	// Parse request as URL
 	URL, err := url.Parse(string(request))
 	if err != nil {
-		conn.Write([]byte("59 Error parsing URL!r\n"))
+		conn.Write([]byte("59 Error parsing URL!\r\n"))
 		log.Status = 59
 		return
 	}
