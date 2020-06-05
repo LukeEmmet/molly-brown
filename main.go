@@ -44,6 +44,7 @@ func main() {
 	tlscfg := &tls.Config{
 		Certificates: []tls.Certificate{cert},
 		MinVersion: tls.VersionTLS12,
+		ClientAuth: tls.RequestClientCert,
 	}
 
 	// Create TLS listener

@@ -3,8 +3,9 @@ package main
 import (
 		"bufio"
 		"context"
+		"crypto/tls"
+		"crypto/x509"
 		"fmt"
-		"io"
 		"io/ioutil"
 		"log"
 		"mime"
@@ -21,6 +22,7 @@ import (
 
 func handleGeminiRequest(conn net.Conn, config Config, logEntries chan LogEntry) {
 	defer conn.Close()
+	var tlsConn (*tls.Conn) = conn.(*tls.Conn)
 	var log LogEntry
 	log.Time = time.Now()
 	log.RemoteAddr = conn.RemoteAddr()
@@ -39,6 +41,23 @@ func handleGeminiRequest(conn net.Conn, config Config, logEntries chan LogEntry)
 		conn.Write([]byte("40 Unknown error reading request!\r\n"))
 		log.Status = 40
 		return
+	}
+
+	clientCerts := tlsConn.ConnectionState().PeerCertificates
+	// Check validity
+	// This will fail if any of multiple certs are invalid
+	// Maybe we should just require one valid?
+	now := time.Now()
+	for _, cert := range clientCerts {
+		if now.Before(cert.NotBefore) {
+			conn.Write([]byte("64 Client certificate not yet valid!\r\n"))
+			log.Status = 64
+			return
+		} else if now.After(cert.NotAfter) {
+			conn.Write([]byte("65 Client certificate has expired!\r\n"))
+			log.Status = 65
+			return
+		}
 	}
 
 	// Parse request as URL
@@ -140,7 +159,7 @@ func handleGeminiRequest(conn net.Conn, config Config, logEntries chan LogEntry)
 	// If this file is executable, get dynamic content
 	inCGIPath, err := regexp.Match(config.CGIPath, []byte(path))
 	if inCGIPath && info.Mode().Perm() & 0111 == 0111 {
-		handleCGI(config, path, URL, log, conn)
+		handleCGI(config, path, URL, clientCerts, log, conn)
 		return
 	}
 
@@ -213,7 +232,7 @@ func serveFile(path string, log LogEntry, conn net.Conn) {
 	conn.Write(contents)
 }
 
-func handleCGI(config Config, path string, URL *url.URL, log LogEntry, conn net.Conn) {
+func handleCGI(config Config, path string, URL *url.URL, clientCerts []*x509.Certificate, log LogEntry, conn net.Conn) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, path)
