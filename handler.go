@@ -9,6 +9,7 @@ import (
 		"errors"
 		"encoding/hex"
 		"fmt"
+		"io"
 		"io/ioutil"
 		"log"
 		"mime"
@@ -84,7 +85,7 @@ func handleGeminiRequest(conn net.Conn, config Config, logEntries chan LogEntry)
 	    matched, err := regexp.Match(scgi_url, []byte(URL.Path))
 		if matched && err == nil {
 		    fmt.Println("Matched:", scgi_url, scgi_socket)
-			handleSCGI(URL, log, conn)
+			handleSCGI(scgi_socket, config, URL, clientCerts, log, conn)
 			return
 		}
 	}
@@ -299,8 +300,64 @@ func handleCGI(config Config, path string, URL *url.URL, clientCerts []*x509.Cer
 	conn.Write(response)
 }
 
-func handleSCGI(URL *url.URL, log LogEntry, conn net.Conn) {
-	conn.Write([]byte("42 SCGI is only stubbed!\r\n"))
-	log.Status = 42
-	return
+func handleSCGI(socket_path string, config Config, URL *url.URL, clientCerts []*x509.Certificate, log LogEntry, conn net.Conn) {
+
+	// Connect to socket
+	socket, err := net.Dial("unix", socket_path)
+	if err != nil {
+		conn.Write([]byte("42 Error connecting to SCGI service!\r\n"))
+		log.Status = 42
+		return
+	}
+	defer socket.Close()
+
+	// Send variables
+	vars := make(map[string]string)
+	vars["SCGI"] = "1"
+	vars["CONTENT_LENGTH"] = "0"
+	length := 0
+	for key, value := range(vars) {
+		length += len(key)
+		length += len(value)
+		length += 2
+	}
+	socket.Write([]byte(strconv.Itoa(length) + ":"))
+	for key, value := range(vars) {
+		socket.Write([]byte(key + "\x00"))
+		socket.Write([]byte(value + "\x00"))
+	}
+	socket.Write([]byte(","))
+
+	// Read and relay response
+	buffer := make([]byte, 1027)
+	first := true
+	for {
+		n, err := socket.Read(buffer)
+		if err != nil {
+			if err == io.EOF {
+				break
+			} else if !first {
+				// Err
+				conn.Write([]byte("42 Error reading from SCGI service!\r\n"))
+				log.Status = 42
+				return
+			} else {
+				break
+			}
+		}
+		// Extract status code from first line
+		if first {
+			first = false
+			lines := strings.SplitN(string(buffer), "\r\n", 2)
+			status, err := strconv.Atoi(strings.Fields(lines[0])[0])
+			if err != nil {
+				conn.Write([]byte("42 CGI error!\r\n"))
+				log.Status = 42
+				return
+			}
+			log.Status = status
+		}
+		// Send to client
+		conn.Write(buffer[:n])
+	}
 }
