@@ -6,6 +6,7 @@ import (
 		"crypto/sha256"
 		"crypto/tls"
 		"crypto/x509"
+		"errors"
 		"encoding/hex"
 		"fmt"
 		"io/ioutil"
@@ -33,15 +34,8 @@ func handleGeminiRequest(conn net.Conn, config Config, logEntries chan LogEntry)
 	defer func() { logEntries <- log }()
 
 	// Read request
-	reader := bufio.NewReaderSize(conn, 1024)
-	request, overflow, err := reader.ReadLine()
-	if overflow {
-		conn.Write([]byte("59 Request too long!\r\n"))
-		log.Status = 59
-		return
-	} else if err != nil {
-		conn.Write([]byte("40 Unknown error reading request!\r\n"))
-		log.Status = 40
+	URL, err := readRequest(conn, log)
+	if err != nil {
 		return
 	}
 
@@ -60,20 +54,6 @@ func handleGeminiRequest(conn net.Conn, config Config, logEntries chan LogEntry)
 			log.Status = 65
 			return
 		}
-	}
-
-	// Parse request as URL
-	URL, err := url.Parse(string(request))
-	if err != nil {
-		conn.Write([]byte("59 Error parsing URL!\r\n"))
-		log.Status = 59
-		return
-	}
-	log.RequestURL = URL.String()
-
-	// Set implicit scheme
-	if URL.Scheme == "" {
-		URL.Scheme = "gemini"
 	}
 
 	// Reject non-gemini schemes
@@ -169,6 +149,36 @@ func handleGeminiRequest(conn net.Conn, config Config, logEntries chan LogEntry)
 	serveFile(path, log, conn)
 	return
 
+}
+
+func readRequest(conn net.Conn, log LogEntry)  (*url.URL, error) {
+	reader := bufio.NewReaderSize(conn, 1024)
+	request, overflow, err := reader.ReadLine()
+	if overflow {
+		conn.Write([]byte("59 Request too long!\r\n"))
+		log.Status = 59
+		return nil, errors.New("Request too long")
+	} else if err != nil {
+		conn.Write([]byte("40 Unknown error reading request!\r\n"))
+		log.Status = 40
+		return nil, errors.New("Error reading request")
+	}
+
+	// Parse request as URL
+	URL, err := url.Parse(string(request))
+	if err != nil {
+		conn.Write([]byte("59 Error parsing URL!\r\n"))
+		log.Status = 59
+		return nil, errors.New("Bad URL in request")
+	}
+	log.RequestURL = URL.String()
+
+	// Set implicit scheme
+	if URL.Scheme == "" {
+		URL.Scheme = "gemini"
+	}
+
+	return URL, nil
 }
 
 func resolvePath(path string, config Config) (string, os.FileInfo, error) {
