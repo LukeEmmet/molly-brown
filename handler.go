@@ -3,8 +3,10 @@ package main
 import (
 		"bufio"
 		"context"
+		"crypto/sha256"
 		"crypto/tls"
 		"crypto/x509"
+		"encoding/hex"
 		"fmt"
 		"io/ioutil"
 		"log"
@@ -249,6 +251,20 @@ func handleCGI(config Config, path string, URL *url.URL, clientCerts []*x509.Cer
 		"SERVER_PROTOCL=GEMINI",
 		"SERVER_SOFTWARE=MOLLY_BROWN",
 	}
+	// Add client cert variables
+	if len(clientCerts) > 0 {
+		cert := clientCerts[0]
+		fingerprint := sha256.Sum256(cert.Raw)
+		cmd.Env = append(cmd.Env,
+		"TLS_CLIENT_HASH=" + hex.EncodeToString(fingerprint[:]),
+		"TLS_CLIENT_ISSUER=" + cert.Issuer.String(),
+		"TLS_CLIENT_ISSUER_CN=" + cert.Issuer.CommonName,
+		"TLS_CLIENT_SUBJECT=" + cert.Subject.String(),
+		"TLS_CLIENT_SUBJECT_CN=" + cert.Subject.CommonName,
+		)
+
+	}
+
 	response, err := cmd.Output()
 	if ctx.Err() == context.DeadlineExceeded {
 		conn.Write([]byte("42 CGI process timed out!\r\n"))
