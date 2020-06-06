@@ -12,6 +12,7 @@ type Config struct {
 	DocBase            string
 	HomeDocBase        string
 	LogPath            string
+	Redirects          map[string]string
 	CGIPath            string
 	SCGIPaths          map[string]string
 }
@@ -28,6 +29,7 @@ func getConfig(filename string) (Config, error) {
 	config.DocBase = "/var/gemini/"
 	config.HomeDocBase = "users"
 	config.LogPath = "molly.log"
+	config.Redirects = make(map[string]string)
 	config.CGIPath = "^/var/gemini/cgi-bin/"
 	config.SCGIPaths = make(map[string]string)
 

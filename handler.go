@@ -72,6 +72,16 @@ func handleGeminiRequest(conn net.Conn, config Config, logEntries chan LogEntry)
 		return
 	}
 
+	// Check for redirects
+	for src, dst := range config.Redirects {
+		if URL.Path == src {
+			URL.Path = dst
+			conn.Write([]byte("30 " + URL.String() + "\r\n"))
+			log.Status = 30
+			return
+		}
+	}
+
 	// Check whether this URL is mapped to an SCGI app
 	for scgi_url, scgi_socket := range config.SCGIPaths {
 	    matched, err := regexp.Match(scgi_url, []byte(URL.Path))
