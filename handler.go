@@ -217,9 +217,39 @@ func generateDirectoryListing(path string) string {
 		if uint64(file.Mode().Perm())&0444 != 0444 {
 			continue
 		}
-		listing += fmt.Sprintf("=> %s %s\n", url.PathEscape(file.Name()), file.Name())
+		listing += fmt.Sprintf("=> %s %s\n", url.PathEscape(file.Name()), generatePrettyFileLabel(file))
 	}
 	return listing
+}
+
+func generatePrettyFileLabel(info os.FileInfo) string {
+	var size string
+	if info.IsDir() {
+		size = "        "
+	} else if info.Size() < 1024 {
+		size = fmt.Sprintf("%4d   B", info.Size())
+	} else if info.Size() < (1024 << 10) {
+		size = fmt.Sprintf("%4d KiB", info.Size() >> 10)
+	} else if info.Size() < 1024 << 20 {
+		size = fmt.Sprintf("%4d MiB", info.Size() >> 20)
+	} else if info.Size() < 1024 << 30 {
+		size = fmt.Sprintf("%4d GiB", info.Size() >> 30)
+	} else if info.Size() < 1024 << 40 {
+		size = fmt.Sprintf("%4d TiB", info.Size() >> 40)
+	} else {
+		size = "GIGANTIC"
+	}
+
+	var name string
+	if len(info.Name()) > 40 {
+		name = info.Name()[:36] + "..."
+	} else {
+		name = info.Name()
+	}
+	if info.IsDir() {
+		name += "/"
+	}
+	return fmt.Sprintf("%-40s    %s   %v", name, size, info.ModTime().Format("Jan _2 2006"))
 }
 
 func serveFile(path string, log *LogEntry, conn net.Conn) {
