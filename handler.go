@@ -28,7 +28,7 @@ func handleGeminiRequest(conn net.Conn, config Config, logEntries chan LogEntry)
 	defer func() { logEntries <- log }()
 
 	// Read request
-	URL, err := readRequest(conn, log)
+	URL, err := readRequest(conn, &log)
 	if err != nil {
 		return
 	}
@@ -78,7 +78,7 @@ func handleGeminiRequest(conn net.Conn, config Config, logEntries chan LogEntry)
 	    matched, err := regexp.Match(scgi_url, []byte(URL.Path))
 		if matched && err == nil {
 		    fmt.Println("Matched:", scgi_url, scgi_socket)
-			handleSCGI(scgi_socket, config, URL, log, conn)
+			handleSCGI(scgi_socket, config, URL, &log, conn)
 			return
 		}
 	}
@@ -122,7 +122,7 @@ func handleGeminiRequest(conn net.Conn, config Config, logEntries chan LogEntry)
 		index_path := filepath.Join(path, "index.gmi")
 		index_info, err := os.Stat(index_path)
 		if err == nil && uint64(index_info.Mode().Perm())&0444 == 0444 {
-			serveFile(index_path, log, conn)
+			serveFile(index_path, &log, conn)
 		// Serve a generated listing
 		} else {
 			conn.Write([]byte("20 text/gemini\r\n"))
@@ -135,17 +135,17 @@ func handleGeminiRequest(conn net.Conn, config Config, logEntries chan LogEntry)
 	// If this file is executable, get dynamic content
 	inCGIPath, err := regexp.Match(config.CGIPath, []byte(path))
 	if inCGIPath && info.Mode().Perm() & 0111 == 0111 {
-		handleCGI(config, path, URL, log, conn)
+		handleCGI(config, path, URL, &log, conn)
 		return
 	}
 
 	// Otherwise, serve the file contents
-	serveFile(path, log, conn)
+	serveFile(path, &log, conn)
 	return
 
 }
 
-func readRequest(conn net.Conn, log LogEntry)  (*url.URL, error) {
+func readRequest(conn net.Conn, log *LogEntry)  (*url.URL, error) {
 	reader := bufio.NewReaderSize(conn, 1024)
 	request, overflow, err := reader.ReadLine()
 	if overflow {
@@ -214,7 +214,7 @@ func generateDirectoryListing(path string) string {
 	return listing
 }
 
-func serveFile(path string, log LogEntry, conn net.Conn) {
+func serveFile(path string, log *LogEntry, conn net.Conn) {
 	// Get MIME type of files
 	ext := filepath.Ext(path)
 	var mimeType string

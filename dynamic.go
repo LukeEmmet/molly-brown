@@ -15,7 +15,7 @@ import (
 		"time"
 )
 
-func handleCGI(config Config, path string, URL *url.URL, log LogEntry, conn net.Conn) {
+func handleCGI(config Config, path string, URL *url.URL, log *LogEntry, conn net.Conn) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, path)
@@ -51,7 +51,7 @@ func handleCGI(config Config, path string, URL *url.URL, log LogEntry, conn net.
 	conn.Write(response)
 }
 
-func handleSCGI(socket_path string, config Config, URL *url.URL, log LogEntry, conn net.Conn) {
+func handleSCGI(socket_path string, config Config, URL *url.URL, log *LogEntry, conn net.Conn) {
 
 	// Connect to socket
 	socket, err := net.Dial("unix", socket_path)
