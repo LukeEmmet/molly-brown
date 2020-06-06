@@ -5,7 +5,6 @@ import (
 		"context"
 		"crypto/sha256"
 		"crypto/tls"
-		"crypto/x509"
 		"errors"
 		"encoding/hex"
 		"fmt"
@@ -85,7 +84,7 @@ func handleGeminiRequest(conn net.Conn, config Config, logEntries chan LogEntry)
 	    matched, err := regexp.Match(scgi_url, []byte(URL.Path))
 		if matched && err == nil {
 		    fmt.Println("Matched:", scgi_url, scgi_socket)
-			handleSCGI(scgi_socket, config, URL, clientCerts, log, conn)
+			handleSCGI(scgi_socket, config, URL, log, conn)
 			return
 		}
 	}
@@ -142,7 +141,7 @@ func handleGeminiRequest(conn net.Conn, config Config, logEntries chan LogEntry)
 	// If this file is executable, get dynamic content
 	inCGIPath, err := regexp.Match(config.CGIPath, []byte(path))
 	if inCGIPath && info.Mode().Perm() & 0111 == 0111 {
-		handleCGI(config, path, URL, clientCerts, log, conn)
+		handleCGI(config, path, URL, log, conn)
 		return
 	}
 
@@ -245,35 +244,16 @@ func serveFile(path string, log LogEntry, conn net.Conn) {
 	conn.Write(contents)
 }
 
-func handleCGI(config Config, path string, URL *url.URL, clientCerts []*x509.Certificate, log LogEntry, conn net.Conn) {
+func handleCGI(config Config, path string, URL *url.URL, log LogEntry, conn net.Conn) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, path)
-	// Set environment variables
-	cmd.Env = []string{
-		"GATEWAY_INTERFACE=CGI/1.1",
-		"PATH_INFO=/",
-		"QUERY_STRING=" + URL.RawQuery,
-		"REMOTE_ADDR=" + conn.RemoteAddr().String(),
-		"REQUEST_METHOD=",
-		"SCRIPT_PATH=" + path,
-		"SERVER_NAME=" + config.Hostname,
-		"SERVER_PORT=" + strconv.Itoa(config.Port),
-		"SERVER_PROTOCL=GEMINI",
-		"SERVER_SOFTWARE=MOLLY_BROWN",
-	}
-	// Add client cert variables
-	if len(clientCerts) > 0 {
-		cert := clientCerts[0]
-		fingerprint := sha256.Sum256(cert.Raw)
-		cmd.Env = append(cmd.Env,
-		"TLS_CLIENT_HASH=" + hex.EncodeToString(fingerprint[:]),
-		"TLS_CLIENT_ISSUER=" + cert.Issuer.String(),
-		"TLS_CLIENT_ISSUER_CN=" + cert.Issuer.CommonName,
-		"TLS_CLIENT_SUBJECT=" + cert.Subject.String(),
-		"TLS_CLIENT_SUBJECT_CN=" + cert.Subject.CommonName,
-		)
 
+	// Set environment variables
+	vars := prepareCGIVariables(config, URL, conn, path)
+	cmd.Env = []string{ }
+	for key, value := range vars {
+		cmd.Env = append(cmd.Env, key + "=" + value)
 	}
 
 	response, err := cmd.Output()
@@ -300,7 +280,7 @@ func handleCGI(config Config, path string, URL *url.URL, clientCerts []*x509.Cer
 	conn.Write(response)
 }
 
-func handleSCGI(socket_path string, config Config, URL *url.URL, clientCerts []*x509.Certificate, log LogEntry, conn net.Conn) {
+func handleSCGI(socket_path string, config Config, URL *url.URL, log LogEntry, conn net.Conn) {
 
 	// Connect to socket
 	socket, err := net.Dial("unix", socket_path)
@@ -312,9 +292,7 @@ func handleSCGI(socket_path string, config Config, URL *url.URL, clientCerts []*
 	defer socket.Close()
 
 	// Send variables
-	vars := make(map[string]string)
-	vars["SCGI"] = "1"
-	vars["CONTENT_LENGTH"] = "0"
+	vars := prepareSCGIVariables(config, URL, conn)
 	length := 0
 	for key, value := range(vars) {
 		length += len(key)
@@ -360,4 +338,49 @@ func handleSCGI(socket_path string, config Config, URL *url.URL, clientCerts []*
 		// Send to client
 		conn.Write(buffer[:n])
 	}
+}
+
+func prepareCGIVariables(config Config, URL *url.URL, conn net.Conn, path string) map[string]string {
+	vars := prepareGatewayVariables(config, URL, conn)
+	vars["GATEWAY_INTERFACE"] = "CGI/1.1"
+	vars["SCRIPT_PATH"] = path
+	return vars
+}
+
+func prepareSCGIVariables(config Config, URL *url.URL, conn net.Conn) map[string]string {
+	vars := prepareGatewayVariables(config, URL, conn)
+	vars["SCGI"] = "1"
+	vars["CONTENT_LENGTH"] = "0"
+	return vars
+}
+
+func prepareGatewayVariables(config Config, URL *url.URL, conn net.Conn) map[string]string {
+	vars := make(map[string]string)
+	vars["PATH_INFO"] = "/"
+	vars["QUERY_STRING"] = URL.RawQuery
+	vars["REMOTE_ADDR"] = conn.RemoteAddr().String()
+	vars["REQUEST_METHOD"] = ""
+	vars["SERVER_NAME"] = config.Hostname
+	vars["SERVER_PORT"] = strconv.Itoa(config.Port)
+	vars["SERVER_PROTOCL"] = "GEMINI"
+	vars["SERVER_SOFTWARE"] = "MOLLY_BROWN"
+
+	// Add TLS variables
+	var tlsConn (*tls.Conn) = conn.(*tls.Conn)
+	connState := tlsConn.ConnectionState()
+//	vars["TLS_CIPHER"] = CipherSuiteName(connState.CipherSuite)
+
+	// Add client cert variables
+	clientCerts := connState.PeerCertificates
+	if len(clientCerts) > 0 {
+		cert := clientCerts[0]
+		fingerprint := sha256.Sum256(cert.Raw)
+		vars["TLS_CLIENT_HASH"] = hex.EncodeToString(fingerprint[:])
+		vars["TLS_CLIENT_ISSUER"] = cert.Issuer.String()
+		vars["TLS_CLIENT_ISSUER_CN"] = cert.Issuer.CommonName
+		vars["TLS_CLIENT_SUBJECT"] = cert.Subject.String()
+		vars["TLS_CLIENT_SUBJECT_CN"] = cert.Subject.CommonName
+	}
+
+	return vars
 }
