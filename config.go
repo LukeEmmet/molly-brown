@@ -14,7 +14,7 @@ type Config struct {
 	LogPath            string
 	TempRedirects      map[string]string
 	PermRedirects      map[string]string
-	CGIPath            string
+	CGIPaths           []string
 	SCGIPaths          map[string]string
 }
 
@@ -32,7 +32,7 @@ func getConfig(filename string) (Config, error) {
 	config.LogPath = "molly.log"
 	config.TempRedirects = make(map[string]string)
 	config.PermRedirects = make(map[string]string)
-	config.CGIPath = "^/var/gemini/cgi-bin/"
+	config.CGIPaths = make([]string, 0)
 	config.SCGIPaths = make(map[string]string)
 
 	// Return defaults if no filename given

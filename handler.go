@@ -149,10 +149,14 @@ func handleGeminiRequest(conn net.Conn, config Config, logEntries chan LogEntry)
 	}
 
 	// If this file is executable, get dynamic content
-	inCGIPath, err := regexp.Match(config.CGIPath, []byte(path))
-	if inCGIPath && info.Mode().Perm() & 0111 == 0111 {
-		handleCGI(config, path, URL, &log, conn)
-		return
+	if info.Mode().Perm() & 0111 == 0111 {
+		for _, cgiPath := range(config.CGIPaths) {
+			inCGIPath, err := regexp.Match(cgiPath, []byte(path))
+				if err == nil && inCGIPath {
+				handleCGI(config, path, URL, &log, conn)
+				return
+			}
+		}
 	}
 
 	// Otherwise, serve the file contents
