@@ -3,7 +3,6 @@ package main
 import (
 	"crypto/tls"
 	"flag"
-	"fmt"
 	"log"
 	"os"
 	"strconv"
@@ -23,16 +22,13 @@ func main() {
 	}
 	config, err := getConfig(conf_file)
 	if err != nil {
-		fmt.Println("Error reading config file " + conf_file)
-		fmt.Println(err)
-		os.Exit(1)
+		log.Fatal(err)
 	}
 
 	// Open logfile
 	logfile, err := os.OpenFile(config.LogPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		fmt.Println("Error opening log file " + config.LogPath + ".")
-		os.Exit(2)
+		log.Fatal(err)
 	}
 	defer logfile.Close()
 
@@ -50,8 +46,7 @@ func main() {
 	// Create TLS listener
 	listener, err := tls.Listen("tcp", ":" + strconv.Itoa(config.Port), tlscfg)
 	if err != nil {
-		fmt.Println(err)
-		return
+		log.Fatal(err)
 	}
 	defer listener.Close()
 
