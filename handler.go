@@ -73,11 +73,19 @@ func handleGeminiRequest(conn net.Conn, config Config, logEntries chan LogEntry)
 	}
 
 	// Check for redirects
-	for src, dst := range config.Redirects {
+	for src, dst := range config.TempRedirects {
 		if URL.Path == src {
 			URL.Path = dst
 			conn.Write([]byte("30 " + URL.String() + "\r\n"))
 			log.Status = 30
+			return
+		}
+	}
+	for src, dst := range config.PermRedirects {
+		if URL.Path == src {
+			URL.Path = dst
+			conn.Write([]byte("31 " + URL.String() + "\r\n"))
+			log.Status = 31
 			return
 		}
 	}
