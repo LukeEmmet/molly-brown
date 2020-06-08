@@ -143,7 +143,7 @@ func handleGeminiRequest(conn net.Conn, config Config, logEntries chan LogEntry)
 		} else {
 			conn.Write([]byte("20 text/gemini\r\n"))
 			log.Status = 20
-			conn.Write([]byte(generateDirectoryListing(path)))
+			conn.Write([]byte(generateDirectoryListing(URL, path)))
 		}
 		return
 	}
@@ -209,13 +209,21 @@ func resolvePath(path string, config Config) (string, os.FileInfo, error) {
 	return path, info, nil
 }
 
-func generateDirectoryListing(path string) string {
+func generateDirectoryListing(URL *url.URL, path string) string {
 	var listing string
 	files, err := ioutil.ReadDir(path)
 	if err != nil {
 		log.Fatal(err)
 	}
 	listing = "# Directory listing\n\n"
+	// Do "up" link first
+	if URL.Path != "/" {
+		if strings.HasSuffix(URL.Path, "/") {
+			URL.Path = URL.Path[:len(URL.Path)-1]
+		}
+		up := filepath.Dir(URL.Path)
+		listing += fmt.Sprintf("=> %s %s\n", up, "..")
+	}
 	for _, file := range files {
 		// Skip dotfiles
 		if strings.HasPrefix(file.Name(), ".") {
