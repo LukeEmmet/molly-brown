@@ -135,10 +135,10 @@ func handleGeminiRequest(conn net.Conn, config Config, logEntries chan LogEntry)
 			return
 		}
 		// Check for index.gmi if path is a directory
-		index_path := filepath.Join(path, "index.gmi")
+		index_path := filepath.Join(path, "index." + config.GeminiExt)
 		index_info, err := os.Stat(index_path)
 		if err == nil && uint64(index_info.Mode().Perm())&0444 == 0444 {
-			serveFile(index_path, &log, conn)
+			serveFile(index_path, &log, conn, config)
 		// Serve a generated listing
 		} else {
 			conn.Write([]byte("20 text/gemini\r\n"))
@@ -160,7 +160,7 @@ func handleGeminiRequest(conn net.Conn, config Config, logEntries chan LogEntry)
 	}
 
 	// Otherwise, serve the file contents
-	serveFile(path, &log, conn)
+	serveFile(path, &log, conn, config)
 	return
 
 }
@@ -272,11 +272,11 @@ func generatePrettyFileLabel(info os.FileInfo) string {
 	return fmt.Sprintf("%-40s    %s   %v", name, size, info.ModTime().Format("Jan _2 2006"))
 }
 
-func serveFile(path string, log *LogEntry, conn net.Conn) {
+func serveFile(path string, log *LogEntry, conn net.Conn, config Config) {
 	// Get MIME type of files
 	ext := filepath.Ext(path)
 	var mimeType string
-	if ext == ".gmi" {
+	if ext == "." + config.GeminiExt {
 		mimeType = "text/gemini"
 	} else {
 		mimeType = mime.TypeByExtension(ext)

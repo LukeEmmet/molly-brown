@@ -11,6 +11,7 @@ type Config struct {
 	KeyPath            string
 	DocBase            string
 	HomeDocBase        string
+	GeminiExt          string
 	LogPath            string
 	TempRedirects      map[string]string
 	PermRedirects      map[string]string
@@ -29,6 +30,7 @@ func getConfig(filename string) (Config, error) {
 	config.KeyPath = "key.pem"
 	config.DocBase = "/var/gemini/"
 	config.HomeDocBase = "users"
+	config.GeminiExt = "gmi"
 	config.LogPath = "molly.log"
 	config.TempRedirects = make(map[string]string)
 	config.PermRedirects = make(map[string]string)
