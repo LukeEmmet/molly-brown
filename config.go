@@ -19,6 +19,10 @@ type Config struct {
 	SCGIPaths          map[string]string
 }
 
+type MollyFile struct {
+	GeminiExt          string
+}
+
 func getConfig(filename string) (Config, error) {
 
 	var config Config

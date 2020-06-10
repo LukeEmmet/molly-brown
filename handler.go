@@ -15,6 +15,7 @@ import (
 		"regexp"
 		"strings"
 		"time"
+		"github.com/BurntSushi/toml"
 )
 
 func handleGeminiRequest(conn net.Conn, config Config, logEntries chan LogEntry) {
@@ -125,6 +126,16 @@ func handleGeminiRequest(conn net.Conn, config Config, logEntries chan LogEntry)
 		return
 	}
 
+	// Don't serve Molly files
+	if ! info.IsDir() && filepath.Base(path) == ".molly" {
+		conn.Write([]byte("51 Not found!\r\n"))
+		log.Status = 51
+		return
+	}
+
+	// Read Molly files
+	parseMollyFiles(path, info, &config)
+
 	// Handle directories
 	if info.IsDir() {
 		// Redirect to add trailing slash if missing
@@ -212,6 +223,41 @@ func resolvePath(path string, config Config) (string, os.FileInfo, error) {
 		return "", nil, err
 	}
 	return path, info, nil
+}
+
+func parseMollyFiles(path string, info os.FileInfo, config *Config) {
+	// Build list of directories to check
+	dirs := make([]string, 16)
+	if ! info.IsDir() {
+		path = filepath.Dir(path)
+	}
+	dirs = append(dirs, path)
+	for {
+		subpath := filepath.Dir(path)
+		dirs = append(dirs, subpath)
+		if subpath == filepath.Clean(config.DocBase) {
+			break
+		}
+		path = subpath
+	}
+	// Parse files
+	var mollyFile MollyFile
+	for i := len(dirs)-1; i >= 0; i-- {
+		dir := dirs[i]
+		mollyPath := filepath.Join(dir, ".molly")
+		_, err := os.Stat(mollyPath)
+		if err != nil {
+			continue
+		}
+		_, err = toml.DecodeFile(mollyPath, &mollyFile)
+		if err != nil {
+			continue
+		}
+		if mollyFile.GeminiExt != "" {
+			config.GeminiExt = mollyFile.GeminiExt
+		}
+	}
+
 }
 
 func generateDirectoryListing(URL *url.URL, path string) string {
