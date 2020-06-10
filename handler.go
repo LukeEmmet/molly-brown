@@ -233,11 +233,11 @@ func parseMollyFiles(path string, info os.FileInfo, config *Config) {
 	}
 	dirs = append(dirs, path)
 	for {
-		subpath := filepath.Dir(path)
-		dirs = append(dirs, subpath)
-		if subpath == filepath.Clean(config.DocBase) {
+		if path == filepath.Clean(config.DocBase) {
 			break
 		}
+		subpath := filepath.Dir(path)
+		dirs = append(dirs, subpath)
 		path = subpath
 	}
 	// Parse files
