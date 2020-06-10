@@ -12,6 +12,7 @@ type Config struct {
 	DocBase            string
 	HomeDocBase        string
 	GeminiExt          string
+	DefaultLang        string
 	LogPath            string
 	TempRedirects      map[string]string
 	PermRedirects      map[string]string
@@ -21,6 +22,7 @@ type Config struct {
 
 type MollyFile struct {
 	GeminiExt          string
+	DefaultLang        string
 }
 
 func getConfig(filename string) (Config, error) {
@@ -35,6 +37,7 @@ func getConfig(filename string) (Config, error) {
 	config.DocBase = "/var/gemini/"
 	config.HomeDocBase = "users"
 	config.GeminiExt = "gmi"
+	config.DefaultLang = ""
 	config.LogPath = "molly.log"
 	config.TempRedirects = make(map[string]string)
 	config.PermRedirects = make(map[string]string)

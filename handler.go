@@ -256,6 +256,9 @@ func parseMollyFiles(path string, info os.FileInfo, config *Config) {
 		if mollyFile.GeminiExt != "" {
 			config.GeminiExt = mollyFile.GeminiExt
 		}
+		if mollyFile.DefaultLang != "" {
+			config.DefaultLang = mollyFile.DefaultLang
+		}
 	}
 
 }
@@ -327,6 +330,10 @@ func serveFile(path string, log *LogEntry, conn net.Conn, config Config) {
 		mimeType = "text/gemini"
 	} else {
 		mimeType = mime.TypeByExtension(ext)
+	}
+	// Add lang parameter
+	if mimeType == "text/gemini" && config.DefaultLang != "" {
+		mimeType += "; lang=" + config.DefaultLang
 	}
 	// Set a generic MIME type if the extension wasn't recognised
 	if mimeType == "" {
