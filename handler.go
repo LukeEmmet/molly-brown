@@ -202,8 +202,7 @@ func resolvePath(path string, config Config) (string, os.FileInfo, error) {
 		username := bits[1][1:]
 		new_prefix := filepath.Join(config.DocBase, config.HomeDocBase, username)
 		path = strings.Replace(path, bits[1], new_prefix, 1)
-		// TODO: Fix this properly
-		path = strings.Replace(path, "//", "/", -1)
+		path = filepath.Clean(path)
 	} else {
 		path = filepath.Join(config.DocBase, path)
 	}
