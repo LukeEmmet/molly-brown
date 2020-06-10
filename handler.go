@@ -1,21 +1,21 @@
 package main
 
 import (
-		"bufio"
-		"crypto/tls"
-		"errors"
-		"fmt"
-		"io/ioutil"
-		"log"
-		"mime"
-		"net"
-		"net/url"
-		"os"
-		"path/filepath"
-		"regexp"
-		"strings"
-		"time"
-		"github.com/BurntSushi/toml"
+	"bufio"
+	"crypto/tls"
+	"errors"
+	"fmt"
+	"github.com/BurntSushi/toml"
+	"io/ioutil"
+	"log"
+	"mime"
+	"net"
+	"net/url"
+	"os"
+	"path/filepath"
+	"regexp"
+	"strings"
+	"time"
 )
 
 func handleGeminiRequest(conn net.Conn, config Config, logEntries chan LogEntry) {
@@ -93,7 +93,7 @@ func handleGeminiRequest(conn net.Conn, config Config, logEntries chan LogEntry)
 
 	// Check whether this URL is mapped to an SCGI app
 	for scgi_url, scgi_socket := range config.SCGIPaths {
-	    matched, err := regexp.Match(scgi_url, []byte(URL.Path))
+		matched, err := regexp.Match(scgi_url, []byte(URL.Path))
 		if matched && err == nil {
 			handleSCGI(scgi_socket, config, URL, &log, conn)
 			return
@@ -127,7 +127,7 @@ func handleGeminiRequest(conn net.Conn, config Config, logEntries chan LogEntry)
 	}
 
 	// Don't serve Molly files
-	if ! info.IsDir() && filepath.Base(path) == ".molly" {
+	if !info.IsDir() && filepath.Base(path) == ".molly" {
 		conn.Write([]byte("51 Not found!\r\n"))
 		log.Status = 51
 		return
@@ -146,11 +146,11 @@ func handleGeminiRequest(conn net.Conn, config Config, logEntries chan LogEntry)
 			return
 		}
 		// Check for index.gmi if path is a directory
-		index_path := filepath.Join(path, "index." + config.GeminiExt)
+		index_path := filepath.Join(path, "index."+config.GeminiExt)
 		index_info, err := os.Stat(index_path)
 		if err == nil && uint64(index_info.Mode().Perm())&0444 == 0444 {
 			serveFile(index_path, &log, conn, config)
-		// Serve a generated listing
+			// Serve a generated listing
 		} else {
 			conn.Write([]byte("20 text/gemini\r\n"))
 			log.Status = 20
@@ -160,10 +160,10 @@ func handleGeminiRequest(conn net.Conn, config Config, logEntries chan LogEntry)
 	}
 
 	// If this file is executable, get dynamic content
-	if info.Mode().Perm() & 0111 == 0111 {
-		for _, cgiPath := range(config.CGIPaths) {
+	if info.Mode().Perm()&0111 == 0111 {
+		for _, cgiPath := range config.CGIPaths {
 			inCGIPath, err := regexp.Match(cgiPath, []byte(path))
-				if err == nil && inCGIPath {
+			if err == nil && inCGIPath {
 				handleCGI(config, path, URL, &log, conn)
 				return
 			}
@@ -176,7 +176,7 @@ func handleGeminiRequest(conn net.Conn, config Config, logEntries chan LogEntry)
 
 }
 
-func readRequest(conn net.Conn, log *LogEntry)  (*url.URL, error) {
+func readRequest(conn net.Conn, log *LogEntry) (*url.URL, error) {
 	reader := bufio.NewReaderSize(conn, 1024)
 	request, overflow, err := reader.ReadLine()
 	if overflow {
@@ -209,7 +209,7 @@ func readRequest(conn net.Conn, log *LogEntry)  (*url.URL, error) {
 func resolvePath(path string, config Config) (string, os.FileInfo, error) {
 	// Handle tildes
 	if strings.HasPrefix(path, "/~") {
-	    bits := strings.Split(path, "/")
+		bits := strings.Split(path, "/")
 		username := bits[1][1:]
 		new_prefix := filepath.Join(config.DocBase, config.HomeDocBase, username)
 		path = strings.Replace(path, bits[1], new_prefix, 1)
@@ -228,7 +228,7 @@ func resolvePath(path string, config Config) (string, os.FileInfo, error) {
 func parseMollyFiles(path string, info os.FileInfo, config *Config) {
 	// Build list of directories to check
 	dirs := make([]string, 16)
-	if ! info.IsDir() {
+	if !info.IsDir() {
 		path = filepath.Dir(path)
 	}
 	dirs = append(dirs, path)
@@ -242,7 +242,7 @@ func parseMollyFiles(path string, info os.FileInfo, config *Config) {
 	}
 	// Parse files
 	var mollyFile MollyFile
-	for i := len(dirs)-1; i >= 0; i-- {
+	for i := len(dirs) - 1; i >= 0; i-- {
 		dir := dirs[i]
 		mollyPath := filepath.Join(dir, ".molly")
 		_, err := os.Stat(mollyPath)
@@ -299,13 +299,13 @@ func generatePrettyFileLabel(info os.FileInfo) string {
 	} else if info.Size() < 1024 {
 		size = fmt.Sprintf("%4d   B", info.Size())
 	} else if info.Size() < (1024 << 10) {
-		size = fmt.Sprintf("%4d KiB", info.Size() >> 10)
-	} else if info.Size() < 1024 << 20 {
-		size = fmt.Sprintf("%4d MiB", info.Size() >> 20)
-	} else if info.Size() < 1024 << 30 {
-		size = fmt.Sprintf("%4d GiB", info.Size() >> 30)
-	} else if info.Size() < 1024 << 40 {
-		size = fmt.Sprintf("%4d TiB", info.Size() >> 40)
+		size = fmt.Sprintf("%4d KiB", info.Size()>>10)
+	} else if info.Size() < 1024<<20 {
+		size = fmt.Sprintf("%4d MiB", info.Size()>>20)
+	} else if info.Size() < 1024<<30 {
+		size = fmt.Sprintf("%4d GiB", info.Size()>>30)
+	} else if info.Size() < 1024<<40 {
+		size = fmt.Sprintf("%4d TiB", info.Size()>>40)
 	} else {
 		size = "GIGANTIC"
 	}
@@ -326,7 +326,7 @@ func serveFile(path string, log *LogEntry, conn net.Conn, config Config) {
 	// Get MIME type of files
 	ext := filepath.Ext(path)
 	var mimeType string
-	if ext == "." + config.GeminiExt {
+	if ext == "."+config.GeminiExt {
 		mimeType = "text/gemini"
 	} else {
 		mimeType = mime.TypeByExtension(ext)
@@ -349,4 +349,3 @@ func serveFile(path string, log *LogEntry, conn net.Conn, config Config) {
 	log.Status = 20
 	conn.Write(contents)
 }
-

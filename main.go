@@ -39,12 +39,12 @@ func main() {
 	}
 	tlscfg := &tls.Config{
 		Certificates: []tls.Certificate{cert},
-		MinVersion: tls.VersionTLS12,
-		ClientAuth: tls.RequestClientCert,
+		MinVersion:   tls.VersionTLS12,
+		ClientAuth:   tls.RequestClientCert,
 	}
 
 	// Create TLS listener
-	listener, err := tls.Listen("tcp", ":" + strconv.Itoa(config.Port), tlscfg)
+	listener, err := tls.Listen("tcp", ":"+strconv.Itoa(config.Port), tlscfg)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -52,9 +52,9 @@ func main() {
 
 	// Start log handling routine
 	logEntries := make(chan LogEntry, 10)
-	go func () {
+	go func() {
 		for {
-			entry := <- logEntries
+			entry := <-logEntries
 			writeLogEntry(logfile, entry)
 		}
 	}()

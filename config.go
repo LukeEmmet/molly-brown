@@ -5,24 +5,24 @@ import (
 )
 
 type Config struct {
-	Port           	   int
-	Hostname       	   string
-	CertPath           string
-	KeyPath            string
-	DocBase            string
-	HomeDocBase        string
-	GeminiExt          string
-	DefaultLang        string
-	LogPath            string
-	TempRedirects      map[string]string
-	PermRedirects      map[string]string
-	CGIPaths           []string
-	SCGIPaths          map[string]string
+	Port          int
+	Hostname      string
+	CertPath      string
+	KeyPath       string
+	DocBase       string
+	HomeDocBase   string
+	GeminiExt     string
+	DefaultLang   string
+	LogPath       string
+	TempRedirects map[string]string
+	PermRedirects map[string]string
+	CGIPaths      []string
+	SCGIPaths     map[string]string
 }
 
 type MollyFile struct {
-	GeminiExt          string
-	DefaultLang        string
+	GeminiExt   string
+	DefaultLang string
 }
 
 func getConfig(filename string) (Config, error) {

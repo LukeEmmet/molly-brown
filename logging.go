@@ -1,17 +1,17 @@
 package main
 
 import (
-		"net"
-		"os"
-		"strconv"
-		"time"
+	"net"
+	"os"
+	"strconv"
+	"time"
 )
 
 type LogEntry struct {
-	Time			time.Time
-	RemoteAddr		net.Addr
-	RequestURL		string
-	Status			int
+	Time       time.Time
+	RemoteAddr net.Addr
+	RequestURL string
+	Status     int
 }
 
 func writeLogEntry(fp *os.File, entry LogEntry) {

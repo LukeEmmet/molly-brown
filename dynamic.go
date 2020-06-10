@@ -1,18 +1,18 @@
 package main
 
 import (
-		"bufio"
-		"context"
-		"crypto/sha256"
-		"crypto/tls"
-		"encoding/hex"
-		"io"
-		"net"
-		"net/url"
-		"os/exec"
-		"strconv"
-		"strings"
-		"time"
+	"bufio"
+	"context"
+	"crypto/sha256"
+	"crypto/tls"
+	"encoding/hex"
+	"io"
+	"net"
+	"net/url"
+	"os/exec"
+	"strconv"
+	"strings"
+	"time"
 )
 
 func handleCGI(config Config, path string, URL *url.URL, log *LogEntry, conn net.Conn) {
@@ -22,9 +22,9 @@ func handleCGI(config Config, path string, URL *url.URL, log *LogEntry, conn net
 
 	// Set environment variables
 	vars := prepareCGIVariables(config, URL, conn, path)
-	cmd.Env = []string{ }
+	cmd.Env = []string{}
 	for key, value := range vars {
-		cmd.Env = append(cmd.Env, key + "=" + value)
+		cmd.Env = append(cmd.Env, key+"="+value)
 	}
 
 	response, err := cmd.Output()
@@ -65,13 +65,13 @@ func handleSCGI(socket_path string, config Config, URL *url.URL, log *LogEntry, 
 	// Send variables
 	vars := prepareSCGIVariables(config, URL, conn)
 	length := 0
-	for key, value := range(vars) {
+	for key, value := range vars {
 		length += len(key)
 		length += len(value)
 		length += 2
 	}
 	socket.Write([]byte(strconv.Itoa(length) + ":"))
-	for key, value := range(vars) {
+	for key, value := range vars {
 		socket.Write([]byte(key + "\x00"))
 		socket.Write([]byte(value + "\x00"))
 	}
@@ -139,7 +139,7 @@ func prepareGatewayVariables(config Config, URL *url.URL, conn net.Conn) map[str
 	// Add TLS variables
 	var tlsConn (*tls.Conn) = conn.(*tls.Conn)
 	connState := tlsConn.ConnectionState()
-//	vars["TLS_CIPHER"] = CipherSuiteName(connState.CipherSuite)
+	//	vars["TLS_CIPHER"] = CipherSuiteName(connState.CipherSuite)
 
 	// Add client cert variables
 	clientCerts := connState.PeerCertificates
