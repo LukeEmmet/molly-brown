@@ -270,6 +270,15 @@ func generateDirectoryListing(URL *url.URL, path string) string {
 		log.Fatal(err)
 	}
 	listing = "# Directory listing\n\n"
+	// Override with .mollyhead file
+	header_path := filepath.Join(path, ".mollyhead")
+	_, err = os.Stat(header_path)
+	if err == nil {
+		header, err := ioutil.ReadFile(header_path)
+		if err == nil {
+			listing = string(header)
+		}
+	}
 	// Do "up" link first
 	if URL.Path != "/" {
 		if strings.HasSuffix(URL.Path, "/") {
