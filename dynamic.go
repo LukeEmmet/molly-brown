@@ -133,7 +133,7 @@ func prepareGatewayVariables(config Config, URL *url.URL, conn net.Conn) map[str
 	vars["REQUEST_METHOD"] = ""
 	vars["SERVER_NAME"] = config.Hostname
 	vars["SERVER_PORT"] = strconv.Itoa(config.Port)
-	vars["SERVER_PROTOCL"] = "GEMINI"
+	vars["SERVER_PROTOCOL"] = "GEMINI"
 	vars["SERVER_SOFTWARE"] = "MOLLY_BROWN"
 
 	// Add TLS variables
