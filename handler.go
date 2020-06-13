@@ -353,6 +353,7 @@ func serveFile(path string, log *LogEntry, conn net.Conn, config Config) {
 	if err != nil {
 		conn.Write([]byte("50 Error!\r\n"))
 		log.Status = 50
+		return
 	}
 	conn.Write([]byte(fmt.Sprintf("20 %s\r\n", mimeType)))
 	log.Status = 20
