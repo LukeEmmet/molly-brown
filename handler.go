@@ -109,7 +109,7 @@ func handleGeminiRequest(conn net.Conn, config Config, logEntries chan LogEntry)
 		log.Status = 51
 		return
 	} else if err != nil {
-		conn.Write([]byte("40 Temporaray failure!\r\n"))
+		conn.Write([]byte("40 Temporary failure!\r\n"))
 		log.Status = 40
 		return
 	} else if uint64(info.Mode().Perm())&0444 != 0444 {
