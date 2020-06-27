@@ -380,13 +380,20 @@ func serveFile(path string, log *LogEntry, conn net.Conn, config Config) {
 	} else {
 		mimeType = mime.TypeByExtension(ext)
 	}
-	// Add lang parameter
-	if mimeType == "text/gemini" && config.DefaultLang != "" {
-		mimeType += "; lang=" + config.DefaultLang
+	// Override extension-based MIME type
+	for pathRegex, newType := range config.MimeOverrides {
+		overridden, err := regexp.Match(pathRegex, []byte(path))
+		if err == nil && overridden {
+			mimeType = newType
+		}
 	}
 	// Set a generic MIME type if the extension wasn't recognised
 	if mimeType == "" {
 		mimeType = "application/octet-stream"
+	}
+	// Add lang parameter
+	if mimeType == "text/gemini" && config.DefaultLang != "" {
+		mimeType += "; lang=" + config.DefaultLang
 	}
 
 	contents, err := ioutil.ReadFile(path)

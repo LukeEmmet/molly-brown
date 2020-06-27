@@ -92,6 +92,7 @@ The following options can be set in `/etc/molly.conf`:
 * `LogPath`: Path to log file (default value `molly.log`).  Note that
   all intermediate directories must exist, Molly Brown won't create
   them for you.
+* `MimeOverrides`: A map from path regexs to MIME types.  If the path of a file which is about to be served matches the regex, the specified MIME type will be used instead of one inferred from the filename extension.
 * `DirectorySort`: A string specifying how to sort files in automatically generated directory listings.  Must be one of "Name", "Size" or "Time" (default value "Name").
 * `DirectoryReverse` (boolean): if true, automatically generated directory listings will list files in descending order of whatever `DirectorySort` is set to (default value false).
 * `DirectoryTitles` (boolean): if true, automatically generated directory listings will use the first top-level heading (i.e. line beginning with "# ") in files with an extension of `GeminiExt` instead of the filename (default value false).

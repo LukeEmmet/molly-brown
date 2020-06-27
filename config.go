@@ -17,6 +17,7 @@ type Config struct {
 	LogPath          string
 	TempRedirects    map[string]string
 	PermRedirects    map[string]string
+	MimeOverrides    map[string]string
 	CGIPaths         []string
 	SCGIPaths        map[string]string
 	DirectorySort    string
