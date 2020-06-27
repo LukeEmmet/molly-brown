@@ -93,4 +93,5 @@ The following options can be set in `/etc/molly.conf`:
   all intermediate directories must exist, Molly Brown won't create
   them for you.
 * `DirectorySort`: A string specifying how to sort files in automatically generated directory listings.  Must be one of "Name", "Size" or "Time" (default value "Name").
-* `DirectoryReverse`: Boolean, if true automatically generated directory listings will list files in descending order of whatever `DirectorySort` is set to (default value false).
+* `DirectoryReverse` (boolean): if true, automatically generated directory listings will list files in descending order of whatever `DirectorySort` is set to (default value false).
+* `DirectoryTitles` (boolean): if true, automatically generated directory listings will use the first top-level heading (i.e. line beginning with "# ") in files with an extension of `GeminiExt` instead of the filename (default value false).

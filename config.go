@@ -21,6 +21,7 @@ type Config struct {
 	SCGIPaths        map[string]string
 	DirectorySort    string
 	DirectoryReverse bool
+	DirectoryTitles  bool
 }
 
 type MollyFile struct {

@@ -312,12 +312,12 @@ func generateDirectoryListing(URL *url.URL, path string, config Config) string {
 		if uint64(file.Mode().Perm())&0444 != 0444 {
 			continue
 		}
-		listing += fmt.Sprintf("=> %s %s\n", url.PathEscape(file.Name()), generatePrettyFileLabel(file))
+		listing += fmt.Sprintf("=> %s %s\n", url.PathEscape(file.Name()), generatePrettyFileLabel(file, path, config))
 	}
 	return listing
 }
 
-func generatePrettyFileLabel(info os.FileInfo) string {
+func generatePrettyFileLabel(info os.FileInfo, path string, config Config) string {
 	var size string
 	if info.IsDir() {
 		size = "        "
@@ -335,16 +335,35 @@ func generatePrettyFileLabel(info os.FileInfo) string {
 		size = "GIGANTIC"
 	}
 
-	var name string
-	if len(info.Name()) > 40 {
+	name := info.Name()
+	if config.DirectoryTitles && filepath.Ext(name) == "."+config.GeminiExt {
+		name = readHeading(path, info)
+	}
+	if len(name) > 40 {
 		name = info.Name()[:36] + "..."
-	} else {
-		name = info.Name()
 	}
 	if info.IsDir() {
 		name += "/"
 	}
 	return fmt.Sprintf("%-40s    %s   %v", name, size, info.ModTime().Format("Jan _2 2006"))
+}
+
+func readHeading(path string, info os.FileInfo) string {
+	filePath := filepath.Join(path, info.Name())
+	file, err := os.Open(filePath)
+	if err != nil {
+		return info.Name()
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.HasPrefix(line, "# ") {
+			return strings.TrimSpace(line[1:])
+		}
+	}
+	return info.Name()
 }
 
 func serveFile(path string, log *LogEntry, conn net.Conn, config Config) {
