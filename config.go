@@ -1,23 +1,26 @@
 package main
 
 import (
+	"errors"
 	"github.com/BurntSushi/toml"
 )
 
 type Config struct {
-	Port          int
-	Hostname      string
-	CertPath      string
-	KeyPath       string
-	DocBase       string
-	HomeDocBase   string
-	GeminiExt     string
-	DefaultLang   string
-	LogPath       string
-	TempRedirects map[string]string
-	PermRedirects map[string]string
-	CGIPaths      []string
-	SCGIPaths     map[string]string
+	Port             int
+	Hostname         string
+	CertPath         string
+	KeyPath          string
+	DocBase          string
+	HomeDocBase      string
+	GeminiExt        string
+	DefaultLang      string
+	LogPath          string
+	TempRedirects    map[string]string
+	PermRedirects    map[string]string
+	CGIPaths         []string
+	SCGIPaths        map[string]string
+	DirectorySort    string
+	DirectoryReverse bool
 }
 
 type MollyFile struct {
@@ -43,6 +46,7 @@ func getConfig(filename string) (Config, error) {
 	config.PermRedirects = make(map[string]string)
 	config.CGIPaths = make([]string, 0)
 	config.SCGIPaths = make(map[string]string)
+	config.DirectorySort = "Name"
 
 	// Return defaults if no filename given
 	if filename == "" {
@@ -54,5 +58,13 @@ func getConfig(filename string) (Config, error) {
 	if err != nil {
 		return config, err
 	}
+
+	// Validate pseudo-enums
+	switch config.DirectorySort {
+	case "Name", "Size", "Time":
+	default:
+		return config, errors.New("Invalid DirectorySort value.")
+	}
+
 	return config, nil
 }

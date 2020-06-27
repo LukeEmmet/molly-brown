@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 )
@@ -154,7 +155,7 @@ func handleGeminiRequest(conn net.Conn, config Config, logEntries chan LogEntry)
 		} else {
 			conn.Write([]byte("20 text/gemini\r\n"))
 			log.Status = 20
-			conn.Write([]byte(generateDirectoryListing(URL, path)))
+			conn.Write([]byte(generateDirectoryListing(URL, path, config)))
 		}
 		return
 	}
@@ -263,7 +264,7 @@ func parseMollyFiles(path string, info os.FileInfo, config *Config) {
 
 }
 
-func generateDirectoryListing(URL *url.URL, path string) string {
+func generateDirectoryListing(URL *url.URL, path string, config Config) string {
 	var listing string
 	files, err := ioutil.ReadDir(path)
 	if err != nil {
@@ -287,6 +288,21 @@ func generateDirectoryListing(URL *url.URL, path string) string {
 		up := filepath.Dir(URL.Path)
 		listing += fmt.Sprintf("=> %s %s\n", up, "..")
 	}
+	// Sort files
+	sort.SliceStable(files, func(i, j int) bool {
+		if config.DirectoryReverse {
+			i, j = j, i
+		}
+		if config.DirectorySort == "Name" {
+			return files[i].Name() < files[j].Name()
+		} else if config.DirectorySort == "Size" {
+			return files[i].Size() < files[j].Size()
+		} else if config.DirectorySort == "Time" {
+			return files[i].ModTime().Before(files[j].ModTime())
+		}
+		return false // Should not happen
+	})
+	// Format lines
 	for _, file := range files {
 		// Skip dotfiles
 		if strings.HasPrefix(file.Name(), ".") {

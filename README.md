@@ -92,3 +92,5 @@ The following options can be set in `/etc/molly.conf`:
 * `LogPath`: Path to log file (default value `molly.log`).  Note that
   all intermediate directories must exist, Molly Brown won't create
   them for you.
+* `DirectorySort`: A string specifying how to sort files in automatically generated directory listings.  Must be one of "Name", "Size" or "Time" (default value "Name").
+* `DirectoryReverse`: Boolean, if true automatically generated directory listings will list files in descending order of whatever `DirectorySort` is set to (default value false).
