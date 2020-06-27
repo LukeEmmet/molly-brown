@@ -241,8 +241,14 @@ func parseMollyFiles(path string, info os.FileInfo, config *Config) {
 		dirs = append(dirs, subpath)
 		path = subpath
 	}
-	// Parse files
+	// Initialise MollyFile using main Config
 	var mollyFile MollyFile
+	mollyFile.GeminiExt = config.GeminiExt
+	mollyFile.DefaultLang = config.DefaultLang
+	mollyFile.DirectorySort = config.DirectorySort
+	mollyFile.DirectoryReverse = config.DirectoryReverse
+	mollyFile.DirectoryTitles = config.DirectoryTitles
+	// Parse files
 	for i := len(dirs) - 1; i >= 0; i-- {
 		dir := dirs[i]
 		mollyPath := filepath.Join(dir, ".molly")
@@ -254,14 +260,13 @@ func parseMollyFiles(path string, info os.FileInfo, config *Config) {
 		if err != nil {
 			continue
 		}
-		if mollyFile.GeminiExt != "" {
-			config.GeminiExt = mollyFile.GeminiExt
-		}
-		if mollyFile.DefaultLang != "" {
-			config.DefaultLang = mollyFile.DefaultLang
-		}
+		// Overwrite main Config using MollyFile
+		config.GeminiExt = mollyFile.GeminiExt
+		config.DefaultLang = mollyFile.DefaultLang
+		config.DirectorySort = mollyFile.DirectorySort
+		config.DirectoryReverse = mollyFile.DirectoryReverse
+		config.DirectoryTitles = mollyFile.DirectoryTitles
 	}
-
 }
 
 func generateDirectoryListing(URL *url.URL, path string, config Config) string {

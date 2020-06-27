@@ -25,8 +25,11 @@ type Config struct {
 }
 
 type MollyFile struct {
-	GeminiExt   string
-	DefaultLang string
+	GeminiExt        string
+	DefaultLang      string
+	DirectorySort    string
+	DirectoryReverse bool
+	DirectoryTitles  bool
 }
 
 func getConfig(filename string) (Config, error) {
