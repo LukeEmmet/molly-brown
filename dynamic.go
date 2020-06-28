@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/hex"
 	"io"
 	"net"
@@ -145,13 +146,17 @@ func prepareGatewayVariables(config Config, URL *url.URL, conn net.Conn) map[str
 	clientCerts := connState.PeerCertificates
 	if len(clientCerts) > 0 {
 		cert := clientCerts[0]
-		fingerprint := sha256.Sum256(cert.Raw)
-		vars["TLS_CLIENT_HASH"] = hex.EncodeToString(fingerprint[:])
+		vars["TLS_CLIENT_HASH"] = getCertFingerprint(cert)
 		vars["TLS_CLIENT_ISSUER"] = cert.Issuer.String()
 		vars["TLS_CLIENT_ISSUER_CN"] = cert.Issuer.CommonName
 		vars["TLS_CLIENT_SUBJECT"] = cert.Subject.String()
 		vars["TLS_CLIENT_SUBJECT_CN"] = cert.Subject.CommonName
 	}
-
 	return vars
+}
+
+func getCertFingerprint(cert *x509.Certificate) string {
+	hash := sha256.Sum256(cert.Raw)
+	fingerprint := hex.EncodeToString(hash[:])
+	return fingerprint
 }

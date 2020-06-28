@@ -92,6 +92,32 @@ func handleGeminiRequest(conn net.Conn, config Config, logEntries chan LogEntry)
 		}
 	}
 
+	// Check whether this URL is in a certificate zone
+	authorised := true
+	for zone, allowed_fingerprint := range config.CertificateZones {
+		matched, err := regexp.Match(zone, []byte(URL.Path))
+		if !matched || err != nil {
+			continue
+		}
+		authorised = false
+		for _, cert := range clientCerts {
+			if getCertFingerprint(cert) == allowed_fingerprint {
+				authorised = true
+				break
+			}
+		}
+	}
+	if !authorised {
+		if len(clientCerts) > 0 {
+			conn.Write([]byte("61 Provided certificate not authorised for this resource\r\n"))
+			log.Status = 61
+		} else {
+			conn.Write([]byte("60 A pre-authorised certificate is required to access this resource\r\n"))
+			log.Status = 60
+		}
+		return
+	}
+
 	// Check whether this URL is mapped to an SCGI app
 	for scgi_url, scgi_socket := range config.SCGIPaths {
 		matched, err := regexp.Match(scgi_url, []byte(URL.Path))
