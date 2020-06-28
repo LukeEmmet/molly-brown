@@ -20,7 +20,7 @@ type Config struct {
 	MimeOverrides    map[string]string
 	CGIPaths         []string
 	SCGIPaths        map[string]string
-	CertificateZones map[string]string
+	CertificateZones map[string][]string
 	DirectorySort    string
 	DirectoryReverse bool
 	DirectoryTitles  bool

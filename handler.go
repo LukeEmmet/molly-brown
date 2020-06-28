@@ -94,16 +94,18 @@ func handleGeminiRequest(conn net.Conn, config Config, logEntries chan LogEntry)
 
 	// Check whether this URL is in a certificate zone
 	authorised := true
-	for zone, allowed_fingerprint := range config.CertificateZones {
+	for zone, allowedFingerprints := range config.CertificateZones {
 		matched, err := regexp.Match(zone, []byte(URL.Path))
 		if !matched || err != nil {
 			continue
 		}
 		authorised = false
-		for _, cert := range clientCerts {
-			if getCertFingerprint(cert) == allowed_fingerprint {
-				authorised = true
-				break
+		for _, clientCert := range clientCerts {
+			for _, allowedFingerprint := range allowedFingerprints {
+					if getCertFingerprint(clientCert) == allowedFingerprint {
+						authorised = true
+						break
+					}
 			}
 		}
 	}
