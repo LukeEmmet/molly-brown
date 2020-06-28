@@ -19,7 +19,7 @@ import (
 	"time"
 )
 
-func handleGeminiRequest(conn net.Conn, config Config, logEntries chan LogEntry) {
+func handleGeminiRequest(conn net.Conn, config Config, accessLogEntries chan LogEntry, errorLogEntries chan string) {
 	defer conn.Close()
 	var tlsConn (*tls.Conn) = conn.(*tls.Conn)
 	var log LogEntry
@@ -27,10 +27,10 @@ func handleGeminiRequest(conn net.Conn, config Config, logEntries chan LogEntry)
 	log.RemoteAddr = conn.RemoteAddr()
 	log.RequestURL = "-"
 	log.Status = 0
-	defer func() { logEntries <- log }()
+	defer func() { accessLogEntries <- log }()
 
 	// Read request
-	URL, err := readRequest(conn, &log)
+	URL, err := readRequest(conn, &log, errorLogEntries)
 	if err != nil {
 		return
 	}
@@ -149,7 +149,7 @@ func handleGeminiRequest(conn net.Conn, config Config, logEntries chan LogEntry)
 
 	// Paranoid security measure:
 	// Fail if the URL has mapped to our TLS files or the log
-	if path == config.CertPath || path == config.KeyPath || path == config.LogPath {
+	if path == config.CertPath || path == config.KeyPath || path == config.AccessLog || path == config.ErrorLog {
 		conn.Write([]byte("51 Not found!\r\n"))
 		log.Status = 51
 		return
@@ -163,7 +163,7 @@ func handleGeminiRequest(conn net.Conn, config Config, logEntries chan LogEntry)
 	}
 
 	// Read Molly files
-	parseMollyFiles(path, info, &config)
+	parseMollyFiles(path, info, &config, errorLogEntries)
 
 	// Handle directories
 	if info.IsDir() {
@@ -178,7 +178,7 @@ func handleGeminiRequest(conn net.Conn, config Config, logEntries chan LogEntry)
 		index_path := filepath.Join(path, "index."+config.GeminiExt)
 		index_info, err := os.Stat(index_path)
 		if err == nil && uint64(index_info.Mode().Perm())&0444 == 0444 {
-			serveFile(index_path, &log, conn, config)
+			serveFile(index_path, &log, conn, config, errorLogEntries)
 			// Serve a generated listing
 		} else {
 			conn.Write([]byte("20 text/gemini\r\n"))
@@ -193,19 +193,19 @@ func handleGeminiRequest(conn net.Conn, config Config, logEntries chan LogEntry)
 		for _, cgiPath := range config.CGIPaths {
 			inCGIPath, err := regexp.Match(cgiPath, []byte(path))
 			if err == nil && inCGIPath {
-				handleCGI(config, path, URL, &log, conn)
+				handleCGI(config, path, URL, &log, errorLogEntries, conn)
 				return
 			}
 		}
 	}
 
 	// Otherwise, serve the file contents
-	serveFile(path, &log, conn, config)
+	serveFile(path, &log, conn, config, errorLogEntries)
 	return
 
 }
 
-func readRequest(conn net.Conn, log *LogEntry) (*url.URL, error) {
+func readRequest(conn net.Conn, log *LogEntry, errorLog chan string) (*url.URL, error) {
 	reader := bufio.NewReaderSize(conn, 1024)
 	request, overflow, err := reader.ReadLine()
 	if overflow {
@@ -213,6 +213,7 @@ func readRequest(conn net.Conn, log *LogEntry) (*url.URL, error) {
 		log.Status = 59
 		return nil, errors.New("Request too long")
 	} else if err != nil {
+		errorLog <- "Error reading request: " + err.Error()
 		conn.Write([]byte("40 Unknown error reading request!\r\n"))
 		log.Status = 40
 		return nil, errors.New("Error reading request")
@@ -221,6 +222,7 @@ func readRequest(conn net.Conn, log *LogEntry) (*url.URL, error) {
 	// Parse request as URL
 	URL, err := url.Parse(string(request))
 	if err != nil {
+		errorLog <- "Error parsing request URL " + string(request) + ": " + err.Error()
 		conn.Write([]byte("59 Error parsing URL!\r\n"))
 		log.Status = 59
 		return nil, errors.New("Bad URL in request")
@@ -254,7 +256,7 @@ func resolvePath(path string, config Config) (string, os.FileInfo, error) {
 	return path, info, nil
 }
 
-func parseMollyFiles(path string, info os.FileInfo, config *Config) {
+func parseMollyFiles(path string, info os.FileInfo, config *Config, errorLogEntries chan string) {
 	// Build list of directories to check
 	dirs := make([]string, 16)
 	if !info.IsDir() {
@@ -286,6 +288,7 @@ func parseMollyFiles(path string, info os.FileInfo, config *Config) {
 		}
 		_, err = toml.DecodeFile(mollyPath, &mollyFile)
 		if err != nil {
+			errorLogEntries <- "Error parsing .molly file " + mollyPath + ": " + err.Error()
 			continue
 		}
 		// Overwrite main Config using MollyFile
@@ -399,7 +402,7 @@ func readHeading(path string, info os.FileInfo) string {
 	return info.Name()
 }
 
-func serveFile(path string, log *LogEntry, conn net.Conn, config Config) {
+func serveFile(path string, log *LogEntry, conn net.Conn, config Config, errorLog chan string) {
 	// Get MIME type of files
 	ext := filepath.Ext(path)
 	var mimeType string

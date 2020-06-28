@@ -16,7 +16,7 @@ import (
 	"time"
 )
 
-func handleCGI(config Config, path string, URL *url.URL, log *LogEntry, conn net.Conn) {
+func handleCGI(config Config, path string, URL *url.URL, log *LogEntry, errorLog chan string, conn net.Conn) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, path)
@@ -27,14 +27,15 @@ func handleCGI(config Config, path string, URL *url.URL, log *LogEntry, conn net
 	for key, value := range vars {
 		cmd.Env = append(cmd.Env, key+"="+value)
 	}
-
 	response, err := cmd.Output()
 	if ctx.Err() == context.DeadlineExceeded {
+		errorLog <- "Terminating CGI process " + path  + " due to exceeding 10 second runtime limit."
 		conn.Write([]byte("42 CGI process timed out!\r\n"))
 		log.Status = 42
 		return
 	}
 	if err != nil {
+		errorLog <- "Error starting CGI executable " + path  + ": " + err.Error()
 		conn.Write([]byte("42 CGI error!\r\n"))
 		log.Status = 42
 		return
@@ -43,6 +44,7 @@ func handleCGI(config Config, path string, URL *url.URL, log *LogEntry, conn net
 	header, _, err := bufio.NewReader(strings.NewReader(string(response))).ReadLine()
 	status, err2 := strconv.Atoi(strings.Fields(string(header))[0])
 	if err != nil || err2 != nil {
+		errorLog <- "Unable to parse first line of output from CGI process " + path  + " as valid Gemini response header."
 		conn.Write([]byte("42 CGI error!\r\n"))
 		log.Status = 42
 		return

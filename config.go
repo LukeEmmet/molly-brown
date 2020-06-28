@@ -14,7 +14,8 @@ type Config struct {
 	HomeDocBase      string
 	GeminiExt        string
 	DefaultLang      string
-	LogPath          string
+	AccessLog        string
+	ErrorLog         string
 	TempRedirects    map[string]string
 	PermRedirects    map[string]string
 	MimeOverrides    map[string]string
@@ -47,7 +48,8 @@ func getConfig(filename string) (Config, error) {
 	config.HomeDocBase = "users"
 	config.GeminiExt = "gmi"
 	config.DefaultLang = ""
-	config.LogPath = "molly.log"
+	config.AccessLog = "access.log"
+	config.ErrorLog = "error.log"
 	config.TempRedirects = make(map[string]string)
 	config.PermRedirects = make(map[string]string)
 	config.CGIPaths = make([]string, 0)

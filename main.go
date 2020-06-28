@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"time"
 )
 
 func main() {
@@ -25,12 +26,17 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// Open logfile
-	logfile, err := os.OpenFile(config.LogPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	// Open log files
+	errorLogFile, err := os.OpenFile(config.ErrorLog, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer logfile.Close()
+	defer errorLogFile.Close()
+	accessLogFile, err := os.OpenFile(config.AccessLog, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer accessLogFile.Close()
 
 	// Read TLS files, create TLS config
 	cert, err := tls.LoadX509KeyPair(config.CertPath, config.KeyPath)
@@ -50,12 +56,19 @@ func main() {
 	}
 	defer listener.Close()
 
-	// Start log handling routine
-	logEntries := make(chan LogEntry, 10)
+	// Start log handling routines
+	accessLogEntries := make(chan LogEntry, 10)
 	go func() {
 		for {
-			entry := <-logEntries
-			writeLogEntry(logfile, entry)
+			entry := <- accessLogEntries
+			writeLogEntry(accessLogFile, entry)
+		}
+	}()
+	errorLogEntries := make(chan string, 10)
+	go func() {
+		for {
+			message := <- errorLogEntries
+			errorLogFile.WriteString( time.Now().Format(time.RFC3339) + " " + message + "\n")
 		}
 	}()
 
@@ -65,7 +78,7 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		go handleGeminiRequest(conn, config, logEntries)
+		go handleGeminiRequest(conn, config, accessLogEntries, errorLogEntries)
 	}
 
 }

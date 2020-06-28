@@ -89,7 +89,10 @@ The following options can be set in `/etc/molly.conf`:
   actual home directories like you may expect based on experience with
   other server software.  Of course, you can symlink
   `/var/gemini/users/gus/` to `/home/gus/public_gemini/` if you want.
-* `LogPath`: Path to log file (default value `molly.log`).  Note that
+* `AccessLog`: Path to access log file (default value `access.log`, i.e. in the current wrorking directory).  Note that
+  all intermediate directories must exist, Molly Brown won't create
+  them for you.
+* `ErrorLog`: Path to error log file (default value `error.log`, i.e. in the current wrorking directory).  Note that
   all intermediate directories must exist, Molly Brown won't create
   them for you.
 * `MimeOverrides`: A map from path regexs to MIME types.  If the path of a file which is about to be served matches the regex, the specified MIME type will be used instead of one inferred from the filename extension.
