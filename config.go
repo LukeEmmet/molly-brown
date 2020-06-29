@@ -16,6 +16,7 @@ type Config struct {
 	DefaultLang      string
 	AccessLog        string
 	ErrorLog         string
+	ReadMollyFiles   bool
 	TempRedirects    map[string]string
 	PermRedirects    map[string]string
 	MimeOverrides    map[string]string

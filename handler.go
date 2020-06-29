@@ -163,7 +163,9 @@ func handleGeminiRequest(conn net.Conn, config Config, accessLogEntries chan Log
 	}
 
 	// Read Molly files
-	parseMollyFiles(path, info, &config, errorLogEntries)
+	if config.ReadMollyFiles {
+			parseMollyFiles(path, info, &config, errorLogEntries)
+	}
 
 	// Handle directories
 	if info.IsDir() {
