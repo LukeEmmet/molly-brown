@@ -206,11 +206,12 @@ directory listing:
 
 ### Redirects
 
-* `TempRedirects`: In this section of the config file, keys are path
-  regexs and values are strings.  If the path component of a received
-  request matches one of the regexs, Molly Brown will serve a redirect
-  to a modified URL using the value string as a path, using status
-  code 30.
+* `TempRedirects`: In this section of the config file, keys and values
+  are both path strings.  If the path component of a received request
+  matches one of the keys, Molly Brown will serve a redirect to the
+  corresponding value, using status code 30.  Note that currently
+  redirects cannot be specified using regular exressions, only literal
+  path strings.
 * `PermRedirects`: As per `TempRedirects` above, but Molly Brown will
   use the 31 status code instead of 30.
 
