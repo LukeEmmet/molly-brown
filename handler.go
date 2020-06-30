@@ -81,7 +81,6 @@ func handleGeminiRequest(conn net.Conn, config Config, accessLogEntries chan Log
 	if config.ReadMollyFiles {
 		parseMollyFiles(path, &config, errorLogEntries)
 	}
-
 	// Check for redirects
 	for src, dst := range config.TempRedirects {
 		if URL.Path == src {
@@ -304,8 +303,14 @@ func parseMollyFiles(path string, config *Config, errorLogEntries chan string) {
 		config.DirectorySort = mollyFile.DirectorySort
 		config.DirectoryReverse = mollyFile.DirectoryReverse
 		config.DirectoryTitles = mollyFile.DirectoryTitles
-		for pathRegex, newType := range mollyFile.MimeOverrides {
-			config.MimeOverrides[pathRegex] = newType
+		for key, value := range mollyFile.TempRedirects {
+			config.TempRedirects[key] = value
+		}
+		for key, value := range mollyFile.PermRedirects {
+			config.PermRedirects[key] = value
+		}
+		for key, value := range mollyFile.MimeOverrides {
+			config.MimeOverrides[key] = value
 		}
 	}
 }

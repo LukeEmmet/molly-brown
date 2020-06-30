@@ -301,12 +301,12 @@ other settings in `.molly` files will be ignored:
 * `DirectoryTitles`
 * `GeminiExt`
 * `MimeOverrides`
+* `PermRedirects`
+* `TempRedirects`
 
 Future support is planned for `.molly` files to be able to override:
 
 * `CertificateZones`
-* `TempRedirects`
-* `PermRedirects`
 
 ## Trivia
 
