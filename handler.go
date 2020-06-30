@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -60,7 +61,7 @@ func handleGeminiRequest(conn net.Conn, config Config, accessLogEntries chan Log
 	}
 
 	// Reject requests for content from other servers
-	if URL.Hostname() != config.Hostname || (URL.Port() != "" && URL.Port() != config.Port) {
+	if URL.Hostname() != config.Hostname || (URL.Port() != "" && URL.Port() != strconv.Itoa(config.Port)) {
 		conn.Write([]byte("53 No proxying to other hosts or ports!\r\n"))
 		log.Status = 53
 		return
