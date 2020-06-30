@@ -281,7 +281,6 @@ func parseMollyFiles(path string, config *Config, errorLogEntries chan string) {
 	// Parse files in reverse order
 	for i := len(dirs) - 1; i >= 0; i-- {
 		dir := dirs[i]
-		fmt.Println("Considering " + dir)
 		// Break out of the loop if a directory doesn't exist
 		_, err := os.Stat(dir)
 		if os.IsNotExist(err) {
