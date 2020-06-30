@@ -102,10 +102,10 @@ func handleGeminiRequest(conn net.Conn, config Config, accessLogEntries chan Log
 		authorised = false
 		for _, clientCert := range clientCerts {
 			for _, allowedFingerprint := range allowedFingerprints {
-					if getCertFingerprint(clientCert) == allowedFingerprint {
-						authorised = true
-						break
-					}
+				if getCertFingerprint(clientCert) == allowedFingerprint {
+					authorised = true
+					break
+				}
 			}
 		}
 	}
@@ -300,7 +300,7 @@ func parseMollyFiles(path string, info os.FileInfo, config *Config, errorLogEntr
 		config.DirectoryReverse = mollyFile.DirectoryReverse
 		config.DirectoryTitles = mollyFile.DirectoryTitles
 		for pathRegex, newType := range mollyFile.MimeOverrides {
-				config.MimeOverrides[pathRegex] = newType
+			config.MimeOverrides[pathRegex] = newType
 		}
 	}
 }

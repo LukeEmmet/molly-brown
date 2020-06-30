@@ -60,15 +60,15 @@ func main() {
 	accessLogEntries := make(chan LogEntry, 10)
 	go func() {
 		for {
-			entry := <- accessLogEntries
+			entry := <-accessLogEntries
 			writeLogEntry(accessLogFile, entry)
 		}
 	}()
 	errorLogEntries := make(chan string, 10)
 	go func() {
 		for {
-			message := <- errorLogEntries
-			errorLogFile.WriteString( time.Now().Format(time.RFC3339) + " " + message + "\n")
+			message := <-errorLogEntries
+			errorLogFile.WriteString(time.Now().Format(time.RFC3339) + " " + message + "\n")
 		}
 	}()
 
