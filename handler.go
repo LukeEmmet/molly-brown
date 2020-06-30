@@ -74,6 +74,14 @@ func handleGeminiRequest(conn net.Conn, config Config, accessLogEntries chan Log
 		return
 	}
 
+	// Resolve URI path to actual filesystem path
+	path := resolvePath(URL.Path, config)
+
+	// Read Molly files
+	if config.ReadMollyFiles {
+		parseMollyFiles(path, &config, errorLogEntries)
+	}
+
 	// Check for redirects
 	for src, dst := range config.TempRedirects {
 		if URL.Path == src {
@@ -120,6 +128,22 @@ func handleGeminiRequest(conn net.Conn, config Config, accessLogEntries chan Log
 		return
 	}
 
+	// Check whether this URL is in a configured CGI path
+	for _, cgiPath := range config.CGIPaths {
+		inCGIPath, err := regexp.Match(cgiPath, []byte(path))
+		if err != nil || !inCGIPath {
+			continue
+		}
+		info, err := os.Stat(path)
+		if err != nil {
+			continue
+		}
+		if info.Mode().Perm()&0111 == 0111 {
+			handleCGI(config, path, URL, &log, errorLogEntries, conn)
+			return
+		}
+	}
+
 	// Check whether this URL is mapped to an SCGI app
 	for scgi_url, scgi_socket := range config.SCGIPaths {
 		matched, err := regexp.Match(scgi_url, []byte(URL.Path))
@@ -129,10 +153,8 @@ func handleGeminiRequest(conn net.Conn, config Config, accessLogEntries chan Log
 		}
 	}
 
-	// Resolve URI path to actual filesystem path
-	path, info, err := resolvePath(URL.Path, config)
-
 	// Fail if file does not exist or perms aren't right
+	info, err := os.Stat(path)
 	if os.IsNotExist(err) || os.IsPermission(err) {
 		conn.Write([]byte("51 Not found!\r\n"))
 		log.Status = 51
@@ -162,11 +184,6 @@ func handleGeminiRequest(conn net.Conn, config Config, accessLogEntries chan Log
 		return
 	}
 
-	// Read Molly files
-	if config.ReadMollyFiles {
-			parseMollyFiles(path, info, &config, errorLogEntries)
-	}
-
 	// Handle directories
 	if info.IsDir() {
 		// Redirect to add trailing slash if missing
@@ -188,17 +205,6 @@ func handleGeminiRequest(conn net.Conn, config Config, accessLogEntries chan Log
 			conn.Write([]byte(generateDirectoryListing(URL, path, config)))
 		}
 		return
-	}
-
-	// If this file is executable, get dynamic content
-	if info.Mode().Perm()&0111 == 0111 {
-		for _, cgiPath := range config.CGIPaths {
-			inCGIPath, err := regexp.Match(cgiPath, []byte(path))
-			if err == nil && inCGIPath {
-				handleCGI(config, path, URL, &log, errorLogEntries, conn)
-				return
-			}
-		}
 	}
 
 	// Otherwise, serve the file contents
@@ -239,7 +245,7 @@ func readRequest(conn net.Conn, log *LogEntry, errorLog chan string) (*url.URL, 
 	return URL, nil
 }
 
-func resolvePath(path string, config Config) (string, os.FileInfo, error) {
+func resolvePath(path string, config Config) string {
 	// Handle tildes
 	if strings.HasPrefix(path, "/~") {
 		bits := strings.Split(path, "/")
@@ -250,20 +256,12 @@ func resolvePath(path string, config Config) (string, os.FileInfo, error) {
 	} else {
 		path = filepath.Join(config.DocBase, path)
 	}
-	// Make sure this file exists and is readable
-	info, err := os.Stat(path)
-	if err != nil {
-		return "", nil, err
-	}
-	return path, info, nil
+	return path
 }
 
-func parseMollyFiles(path string, info os.FileInfo, config *Config, errorLogEntries chan string) {
+func parseMollyFiles(path string, config *Config, errorLogEntries chan string) {
 	// Build list of directories to check
-	dirs := make([]string, 16)
-	if !info.IsDir() {
-		path = filepath.Dir(path)
-	}
+	var dirs []string
 	dirs = append(dirs, path)
 	for {
 		if path == filepath.Clean(config.DocBase) {
@@ -280,14 +278,22 @@ func parseMollyFiles(path string, info os.FileInfo, config *Config, errorLogEntr
 	mollyFile.DirectorySort = config.DirectorySort
 	mollyFile.DirectoryReverse = config.DirectoryReverse
 	mollyFile.DirectoryTitles = config.DirectoryTitles
-	// Parse files
+	// Parse files in reverse order
 	for i := len(dirs) - 1; i >= 0; i-- {
 		dir := dirs[i]
+		fmt.Println("Considering " + dir)
+		// Break out of the loop if a directory doesn't exist
+		_, err := os.Stat(dir)
+		if os.IsNotExist(err) {
+			break
+		}
+		// Construct path for a .molly file in this dir
 		mollyPath := filepath.Join(dir, ".molly")
-		_, err := os.Stat(mollyPath)
+		_, err = os.Stat(mollyPath)
 		if err != nil {
 			continue
 		}
+		// If the file exists and we can read it, try to parse it
 		_, err = toml.DecodeFile(mollyPath, &mollyFile)
 		if err != nil {
 			errorLogEntries <- "Error parsing .molly file " + mollyPath + ": " + err.Error()
