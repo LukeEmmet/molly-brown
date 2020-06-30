@@ -7,14 +7,12 @@ import (
 	"fmt"
 	"github.com/BurntSushi/toml"
 	"io/ioutil"
-	"log"
 	"mime"
 	"net"
 	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -36,21 +34,11 @@ func handleGeminiRequest(conn net.Conn, config Config, accessLogEntries chan Log
 		return
 	}
 
+	// Enforce client certificate validity
 	clientCerts := tlsConn.ConnectionState().PeerCertificates
-	// Check validity
-	// This will fail if any of multiple certs are invalid
-	// Maybe we should just require one valid?
-	now := time.Now()
-	for _, cert := range clientCerts {
-		if now.Before(cert.NotBefore) {
-			conn.Write([]byte("64 Client certificate not yet valid!\r\n"))
-			log.Status = 64
-			return
-		} else if now.After(cert.NotAfter) {
-			conn.Write([]byte("65 Client certificate has expired!\r\n"))
-			log.Status = 65
-			return
-		}
+	enforceCertificateValidity(clientCerts, conn, &log)
+	if log.Status != 0 {
+		return
 	}
 
 	// Reject non-gemini schemes
@@ -77,69 +65,39 @@ func handleGeminiRequest(conn net.Conn, config Config, accessLogEntries chan Log
 	// Resolve URI path to actual filesystem path
 	path := resolvePath(URL.Path, config)
 
+	// Paranoid security measures:
+	// Fail ASAP if the URL has mapped to a sensitive file
+	if path == config.CertPath || path == config.KeyPath || path == config.AccessLog || path == config.ErrorLog {
+		conn.Write([]byte("51 Not found!\r\n"))
+		log.Status = 51
+		return
+	}
+
 	// Read Molly files
 	if config.ReadMollyFiles {
 		parseMollyFiles(path, &config, errorLogEntries)
 	}
+
 	// Check for redirects
-	for src, dst := range config.TempRedirects {
-		if URL.Path == src {
-			URL.Path = dst
-			conn.Write([]byte("30 " + URL.String() + "\r\n"))
-			log.Status = 30
-			return
-		}
-	}
-	for src, dst := range config.PermRedirects {
-		if URL.Path == src {
-			URL.Path = dst
-			conn.Write([]byte("31 " + URL.String() + "\r\n"))
-			log.Status = 31
-			return
-		}
+	handleRedirects(URL, config, conn, &log)
+	if log.Status != 0 {
+		return
 	}
 
 	// Check whether this URL is in a certificate zone
-	authorised := true
-	for zone, allowedFingerprints := range config.CertificateZones {
-		matched, err := regexp.Match(zone, []byte(URL.Path))
-		if !matched || err != nil {
-			continue
-		}
-		authorised = false
-		for _, clientCert := range clientCerts {
-			for _, allowedFingerprint := range allowedFingerprints {
-				if getCertFingerprint(clientCert) == allowedFingerprint {
-					authorised = true
-					break
-				}
-			}
-		}
-	}
-	if !authorised {
-		if len(clientCerts) > 0 {
-			conn.Write([]byte("61 Provided certificate not authorised for this resource\r\n"))
-			log.Status = 61
-		} else {
-			conn.Write([]byte("60 A pre-authorised certificate is required to access this resource\r\n"))
-			log.Status = 60
-		}
+	handleCertificateZones(URL, clientCerts, config, conn, &log)
+	if log.Status != 0 {
 		return
 	}
 
 	// Check whether this URL is in a configured CGI path
 	for _, cgiPath := range config.CGIPaths {
 		inCGIPath, err := regexp.Match(cgiPath, []byte(path))
-		if err != nil || !inCGIPath {
-			continue
-		}
-		info, err := os.Stat(path)
-		if err != nil {
-			continue
-		}
-		if info.Mode().Perm()&0111 == 0111 {
+		if err == nil && inCGIPath {
 			handleCGI(config, path, URL, &log, errorLogEntries, conn)
-			return
+			if log.Status != 0 {
+				return
+			}
 		}
 	}
 
@@ -168,48 +126,19 @@ func handleGeminiRequest(conn net.Conn, config Config, accessLogEntries chan Log
 		return
 	}
 
-	// Paranoid security measure:
-	// Fail if the URL has mapped to our TLS files or the log
-	if path == config.CertPath || path == config.KeyPath || path == config.AccessLog || path == config.ErrorLog {
-		conn.Write([]byte("51 Not found!\r\n"))
-		log.Status = 51
-		return
-	}
-
 	// Don't serve Molly files
-	if !info.IsDir() && filepath.Base(path) == ".molly" {
+	if filepath.Base(path) == ".molly" {
 		conn.Write([]byte("51 Not found!\r\n"))
 		log.Status = 51
 		return
 	}
 
-	// Handle directories
+	// Finally, serve the file or directory
 	if info.IsDir() {
-		// Redirect to add trailing slash if missing
-		// (otherwise relative links don't work properly)
-		if !strings.HasSuffix(URL.Path, "/") {
-			conn.Write([]byte(fmt.Sprintf("31 %s\r\n", URL.String()+"/")))
-			log.Status = 31
-			return
-		}
-		// Check for index.gmi if path is a directory
-		index_path := filepath.Join(path, "index."+config.GeminiExt)
-		index_info, err := os.Stat(index_path)
-		if err == nil && uint64(index_info.Mode().Perm())&0444 == 0444 {
-			serveFile(index_path, &log, conn, config, errorLogEntries)
-			// Serve a generated listing
-		} else {
-			conn.Write([]byte("20 text/gemini\r\n"))
-			log.Status = 20
-			conn.Write([]byte(generateDirectoryListing(URL, path, config)))
-		}
-		return
+		serveDirectory(URL, path, &log, conn, config, errorLogEntries)
+	} else {
+		serveFile(path, &log, conn, config, errorLogEntries)
 	}
-
-	// Otherwise, serve the file contents
-	serveFile(path, &log, conn, config, errorLogEntries)
-	return
-
 }
 
 func readRequest(conn net.Conn, log *LogEntry, errorLog chan string) (*url.URL, error) {
@@ -318,106 +247,44 @@ func parseMollyFiles(path string, config *Config, errorLogEntries chan string) {
 	}
 }
 
-func generateDirectoryListing(URL *url.URL, path string, config Config) string {
-	var listing string
-	files, err := ioutil.ReadDir(path)
-	if err != nil {
-		log.Fatal(err)
-	}
-	listing = "# Directory listing\n\n"
-	// Override with .mollyhead file
-	header_path := filepath.Join(path, ".mollyhead")
-	_, err = os.Stat(header_path)
-	if err == nil {
-		header, err := ioutil.ReadFile(header_path)
-		if err == nil {
-			listing = string(header)
+func handleRedirects(URL *url.URL, config Config, conn net.Conn, log *LogEntry) {
+	for src, dst := range config.TempRedirects {
+		if URL.Path == src {
+			URL.Path = dst
+			conn.Write([]byte("30 " + URL.String() + "\r\n"))
+			log.Status = 30
+			return
 		}
 	}
-	// Do "up" link first
-	if URL.Path != "/" {
-		if strings.HasSuffix(URL.Path, "/") {
-			URL.Path = URL.Path[:len(URL.Path)-1]
+	for src, dst := range config.PermRedirects {
+		if URL.Path == src {
+			URL.Path = dst
+			conn.Write([]byte("31 " + URL.String() + "\r\n"))
+			log.Status = 31
+			return
 		}
-		up := filepath.Dir(URL.Path)
-		listing += fmt.Sprintf("=> %s %s\n", up, "..")
 	}
-	// Sort files
-	sort.SliceStable(files, func(i, j int) bool {
-		if config.DirectoryReverse {
-			i, j = j, i
-		}
-		if config.DirectorySort == "Name" {
-			return files[i].Name() < files[j].Name()
-		} else if config.DirectorySort == "Size" {
-			return files[i].Size() < files[j].Size()
-		} else if config.DirectorySort == "Time" {
-			return files[i].ModTime().Before(files[j].ModTime())
-		}
-		return false // Should not happen
-	})
-	// Format lines
-	for _, file := range files {
-		// Skip dotfiles
-		if strings.HasPrefix(file.Name(), ".") {
-			continue
-		}
-		// Only list world readable files
-		if uint64(file.Mode().Perm())&0444 != 0444 {
-			continue
-		}
-		listing += fmt.Sprintf("=> %s %s\n", url.PathEscape(file.Name()), generatePrettyFileLabel(file, path, config))
-	}
-	return listing
 }
 
-func generatePrettyFileLabel(info os.FileInfo, path string, config Config) string {
-	var size string
-	if info.IsDir() {
-		size = "        "
-	} else if info.Size() < 1024 {
-		size = fmt.Sprintf("%4d   B", info.Size())
-	} else if info.Size() < (1024 << 10) {
-		size = fmt.Sprintf("%4d KiB", info.Size()>>10)
-	} else if info.Size() < 1024<<20 {
-		size = fmt.Sprintf("%4d MiB", info.Size()>>20)
-	} else if info.Size() < 1024<<30 {
-		size = fmt.Sprintf("%4d GiB", info.Size()>>30)
-	} else if info.Size() < 1024<<40 {
-		size = fmt.Sprintf("%4d TiB", info.Size()>>40)
+func serveDirectory(URL *url.URL, path string, log *LogEntry, conn net.Conn, config Config, errorLogEntries chan string) {
+	// Redirect to add trailing slash if missing
+	// (otherwise relative links don't work properly)
+	if !strings.HasSuffix(URL.Path, "/") {
+		conn.Write([]byte(fmt.Sprintf("31 %s\r\n", URL.String()+"/")))
+		log.Status = 31
+		return
+	}
+	// Check for index.gmi if path is a directory
+	index_path := filepath.Join(path, "index."+config.GeminiExt)
+	index_info, err := os.Stat(index_path)
+	if err == nil && uint64(index_info.Mode().Perm())&0444 == 0444 {
+		serveFile(index_path, log, conn, config, errorLogEntries)
+		// Serve a generated listing
 	} else {
-		size = "GIGANTIC"
+		conn.Write([]byte("20 text/gemini\r\n"))
+		log.Status = 20
+		conn.Write([]byte(generateDirectoryListing(URL, path, config)))
 	}
-
-	name := info.Name()
-	if config.DirectoryTitles && filepath.Ext(name) == "."+config.GeminiExt {
-		name = readHeading(path, info)
-	}
-	if len(name) > 40 {
-		name = info.Name()[:36] + "..."
-	}
-	if info.IsDir() {
-		name += "/"
-	}
-	return fmt.Sprintf("%-40s    %s   %v", name, size, info.ModTime().Format("Jan _2 2006"))
-}
-
-func readHeading(path string, info os.FileInfo) string {
-	filePath := filepath.Join(path, info.Name())
-	file, err := os.Open(filePath)
-	if err != nil {
-		return info.Name()
-	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := scanner.Text()
-		if strings.HasPrefix(line, "# ") {
-			return strings.TrimSpace(line[1:])
-		}
-	}
-	return info.Name()
 }
 
 func serveFile(path string, log *LogEntry, conn net.Conn, config Config, errorLog chan string) {

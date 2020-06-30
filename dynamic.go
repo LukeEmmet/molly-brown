@@ -3,13 +3,11 @@ package main
 import (
 	"bufio"
 	"context"
-	"crypto/sha256"
 	"crypto/tls"
-	"crypto/x509"
-	"encoding/hex"
 	"io"
 	"net"
 	"net/url"
+	"os"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -17,6 +15,12 @@ import (
 )
 
 func handleCGI(config Config, path string, URL *url.URL, log *LogEntry, errorLog chan string, conn net.Conn) {
+	// Make sure file is executable
+	info, err := os.Stat(path)
+	if info.Mode().Perm()&0111 != 0111 {
+		return
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, path)
@@ -155,10 +159,4 @@ func prepareGatewayVariables(config Config, URL *url.URL, conn net.Conn) map[str
 		vars["TLS_CLIENT_SUBJECT_CN"] = cert.Subject.CommonName
 	}
 	return vars
-}
-
-func getCertFingerprint(cert *x509.Certificate) string {
-	hash := sha256.Sum256(cert.Raw)
-	fingerprint := hex.EncodeToString(hash[:])
-	return fingerprint
 }
