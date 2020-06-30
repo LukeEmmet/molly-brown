@@ -60,9 +60,8 @@ func handleGeminiRequest(conn net.Conn, config Config, accessLogEntries chan Log
 	}
 
 	// Reject requests for content from other servers
-	requestHostname := strings.Split(URL.Host, ":")[0] // Shave off port
-	if requestHostname != config.Hostname {
-		conn.Write([]byte("53 No proxying to other hosts!\r\n"))
+	if URL.Hostname() != config.Hostname || (URL.Port() != "" && URL.Port() != config.Port) {
+		conn.Write([]byte("53 No proxying to other hosts or ports!\r\n"))
 		log.Status = 53
 		return
 	}
