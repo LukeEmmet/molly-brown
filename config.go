@@ -30,6 +30,7 @@ type Config struct {
 
 type MollyFile struct {
 	GeminiExt        string
+	MimeOverrides    map[string]string
 	DefaultLang      string
 	DirectorySort    string
 	DirectoryReverse bool

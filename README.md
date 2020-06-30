@@ -300,11 +300,11 @@ other settings in `.molly` files will be ignored:
 * `DirectoryReverse`
 * `DirectoryTitles`
 * `GeminiExt`
+* `MimeOverrides`
 
 Future support is planned for `.molly` files to be able to override:
 
 * `CertificateZones`
-* `MimeOverrides`
 * `TempRedirects`
 * `PermRedirects`
 

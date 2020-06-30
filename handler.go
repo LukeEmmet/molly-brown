@@ -299,6 +299,9 @@ func parseMollyFiles(path string, info os.FileInfo, config *Config, errorLogEntr
 		config.DirectorySort = mollyFile.DirectorySort
 		config.DirectoryReverse = mollyFile.DirectoryReverse
 		config.DirectoryTitles = mollyFile.DirectoryTitles
+		for pathRegex, newType := range mollyFile.MimeOverrides {
+				config.MimeOverrides[pathRegex] = newType
+		}
 	}
 }
 
