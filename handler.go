@@ -312,6 +312,9 @@ func parseMollyFiles(path string, config *Config, errorLogEntries chan string) {
 		for key, value := range mollyFile.MimeOverrides {
 			config.MimeOverrides[key] = value
 		}
+		for key, value := range mollyFile.CertificateZones {
+			config.CertificateZones[key] = value
+		}
 	}
 }
 

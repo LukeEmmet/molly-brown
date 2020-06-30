@@ -296,6 +296,7 @@ E.g. when handling a request which maps to
 Only the following settings can be overriden by `.molly` files.  Any
 other settings in `.molly` files will be ignored:
 
+* `CertificateZones`
 * `DefaultLang`
 * `DirectorySort`
 * `DirectoryReverse`
@@ -304,10 +305,6 @@ other settings in `.molly` files will be ignored:
 * `MimeOverrides`
 * `PermRedirects`
 * `TempRedirects`
-
-Future support is planned for `.molly` files to be able to override:
-
-* `CertificateZones`
 
 ## Trivia
 

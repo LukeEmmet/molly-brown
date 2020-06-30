@@ -33,6 +33,7 @@ type MollyFile struct {
 	TempRedirects    map[string]string
 	PermRedirects    map[string]string
 	MimeOverrides    map[string]string
+	CertificateZones map[string][]string
 	DefaultLang      string
 	DirectorySort    string
 	DirectoryReverse bool
