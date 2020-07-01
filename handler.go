@@ -78,14 +78,14 @@ func handleGeminiRequest(conn net.Conn, config Config, accessLogEntries chan Log
 		parseMollyFiles(path, &config, errorLogEntries)
 	}
 
-	// Check for redirects
-	handleRedirects(URL, config, conn, &log)
+	// Check whether this URL is in a certificate zone
+	handleCertificateZones(URL, clientCerts, config, conn, &log)
 	if log.Status != 0 {
 		return
 	}
 
-	// Check whether this URL is in a certificate zone
-	handleCertificateZones(URL, clientCerts, config, conn, &log)
+	// Check for redirects
+	handleRedirects(URL, config, conn, &log)
 	if log.Status != 0 {
 		return
 	}
