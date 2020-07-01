@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"path/filepath"
 	"github.com/BurntSushi/toml"
 )
 
@@ -78,6 +79,17 @@ func getConfig(filename string) (Config, error) {
 	default:
 		return config, errors.New("Invalid DirectorySort value.")
 	}
+
+	// Expand CGI paths
+	var cgiPaths []string
+	for _, cgiPath := range config.CGIPaths {
+		expandedPaths, err := filepath.Glob(cgiPath)
+		if err != nil {
+			return config, errors.New("Error expanding CGI path glob " + cgiPath + ": " + err.Error())
+		}
+		cgiPaths = append(cgiPaths, expandedPaths...)
+	}
+	config.CGIPaths = cgiPaths
 
 	return config, nil
 }
