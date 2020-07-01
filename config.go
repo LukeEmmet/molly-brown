@@ -2,6 +2,8 @@ package main
 
 import (
 	"errors"
+	"log"
+	"os"
 	"path/filepath"
 	"github.com/BurntSushi/toml"
 )
@@ -92,4 +94,64 @@ func getConfig(filename string) (Config, error) {
 	config.CGIPaths = cgiPaths
 
 	return config, nil
+}
+
+func parseMollyFiles(path string, config *Config, errorLog *log.Logger) {
+	// Build list of directories to check
+	var dirs []string
+	dirs = append(dirs, path)
+	for {
+		if path == filepath.Clean(config.DocBase) {
+			break
+		}
+		subpath := filepath.Dir(path)
+		dirs = append(dirs, subpath)
+		path = subpath
+	}
+	// Initialise MollyFile using main Config
+	var mollyFile MollyFile
+	mollyFile.GeminiExt = config.GeminiExt
+	mollyFile.DefaultLang = config.DefaultLang
+	mollyFile.DirectorySort = config.DirectorySort
+	mollyFile.DirectoryReverse = config.DirectoryReverse
+	mollyFile.DirectoryTitles = config.DirectoryTitles
+	// Parse files in reverse order
+	for i := len(dirs) - 1; i >= 0; i-- {
+		dir := dirs[i]
+		// Break out of the loop if a directory doesn't exist
+		_, err := os.Stat(dir)
+		if os.IsNotExist(err) {
+			break
+		}
+		// Construct path for a .molly file in this dir
+		mollyPath := filepath.Join(dir, ".molly")
+		_, err = os.Stat(mollyPath)
+		if err != nil {
+			continue
+		}
+		// If the file exists and we can read it, try to parse it
+		_, err = toml.DecodeFile(mollyPath, &mollyFile)
+		if err != nil {
+			errorLog.Println("Error parsing .molly file " + mollyPath + ": " + err.Error())
+			continue
+		}
+		// Overwrite main Config using MollyFile
+		config.GeminiExt = mollyFile.GeminiExt
+		config.DefaultLang = mollyFile.DefaultLang
+		config.DirectorySort = mollyFile.DirectorySort
+		config.DirectoryReverse = mollyFile.DirectoryReverse
+		config.DirectoryTitles = mollyFile.DirectoryTitles
+		for key, value := range mollyFile.TempRedirects {
+			config.TempRedirects[key] = value
+		}
+		for key, value := range mollyFile.PermRedirects {
+			config.PermRedirects[key] = value
+		}
+		for key, value := range mollyFile.MimeOverrides {
+			config.MimeOverrides[key] = value
+		}
+		for key, value := range mollyFile.CertificateZones {
+			config.CertificateZones[key] = value
+		}
+	}
 }
