@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/BurntSushi/toml"
 	"io/ioutil"
+	"log"
 	"mime"
 	"net"
 	"net/url"
@@ -18,7 +19,7 @@ import (
 	"time"
 )
 
-func handleGeminiRequest(conn net.Conn, config Config, accessLogEntries chan LogEntry, errorLogEntries chan string) {
+func handleGeminiRequest(conn net.Conn, config Config, accessLogEntries chan LogEntry, errorLog *log.Logger) {
 	defer conn.Close()
 	var tlsConn (*tls.Conn) = conn.(*tls.Conn)
 	var log LogEntry
@@ -29,7 +30,7 @@ func handleGeminiRequest(conn net.Conn, config Config, accessLogEntries chan Log
 	defer func() { accessLogEntries <- log }()
 
 	// Read request
-	URL, err := readRequest(conn, &log, errorLogEntries)
+	URL, err := readRequest(conn, &log, errorLog)
 	if err != nil {
 		return
 	}
@@ -75,7 +76,7 @@ func handleGeminiRequest(conn net.Conn, config Config, accessLogEntries chan Log
 
 	// Read Molly files
 	if config.ReadMollyFiles {
-		parseMollyFiles(path, &config, errorLogEntries)
+		parseMollyFiles(path, &config, errorLog)
 	}
 
 	// Check whether this URL is in a certificate zone
@@ -101,7 +102,7 @@ func handleGeminiRequest(conn net.Conn, config Config, accessLogEntries chan Log
 	// Check whether this URL is in a configured CGI path
 	for _, cgiPath := range config.CGIPaths {
 		if strings.HasPrefix(path, cgiPath) {
-			handleCGI(config, path, cgiPath, URL, &log, errorLogEntries, conn)
+			handleCGI(config, path, cgiPath, URL, &log, errorLog, conn)
 			if log.Status != 0 {
 				return
 			}
@@ -126,13 +127,13 @@ func handleGeminiRequest(conn net.Conn, config Config, accessLogEntries chan Log
 
 	// Finally, serve the file or directory
 	if info.IsDir() {
-		serveDirectory(URL, path, &log, conn, config, errorLogEntries)
+		serveDirectory(URL, path, &log, conn, config, errorLog)
 	} else {
-		serveFile(path, &log, conn, config, errorLogEntries)
+		serveFile(path, &log, conn, config, errorLog)
 	}
 }
 
-func readRequest(conn net.Conn, log *LogEntry, errorLog chan string) (*url.URL, error) {
+func readRequest(conn net.Conn, log *LogEntry, errorLog *log.Logger) (*url.URL, error) {
 	reader := bufio.NewReaderSize(conn, 1024)
 	request, overflow, err := reader.ReadLine()
 	if overflow {
@@ -140,7 +141,7 @@ func readRequest(conn net.Conn, log *LogEntry, errorLog chan string) (*url.URL, 
 		log.Status = 59
 		return nil, errors.New("Request too long")
 	} else if err != nil {
-		errorLog <- "Error reading request: " + err.Error()
+		errorLog.Println("Error reading request: " + err.Error())
 		conn.Write([]byte("40 Unknown error reading request!\r\n"))
 		log.Status = 40
 		return nil, errors.New("Error reading request")
@@ -149,7 +150,7 @@ func readRequest(conn net.Conn, log *LogEntry, errorLog chan string) (*url.URL, 
 	// Parse request as URL
 	URL, err := url.Parse(string(request))
 	if err != nil {
-		errorLog <- "Error parsing request URL " + string(request) + ": " + err.Error()
+		errorLog.Println("Error parsing request URL " + string(request) + ": " + err.Error())
 		conn.Write([]byte("59 Error parsing URL!\r\n"))
 		log.Status = 59
 		return nil, errors.New("Bad URL in request")
@@ -178,7 +179,7 @@ func resolvePath(path string, config Config) string {
 	return path
 }
 
-func parseMollyFiles(path string, config *Config, errorLogEntries chan string) {
+func parseMollyFiles(path string, config *Config, errorLog *log.Logger) {
 	// Build list of directories to check
 	var dirs []string
 	dirs = append(dirs, path)
@@ -214,7 +215,7 @@ func parseMollyFiles(path string, config *Config, errorLogEntries chan string) {
 		// If the file exists and we can read it, try to parse it
 		_, err = toml.DecodeFile(mollyPath, &mollyFile)
 		if err != nil {
-			errorLogEntries <- "Error parsing .molly file " + mollyPath + ": " + err.Error()
+			errorLog.Println("Error parsing .molly file " + mollyPath + ": " + err.Error())
 			continue
 		}
 		// Overwrite main Config using MollyFile
@@ -259,7 +260,7 @@ func handleRedirectsInner(URL *url.URL, redirects map[string]string, status int,
 	}
 }
 
-func serveDirectory(URL *url.URL, path string, log *LogEntry, conn net.Conn, config Config, errorLogEntries chan string) {
+func serveDirectory(URL *url.URL, path string, log *LogEntry, conn net.Conn, config Config, errorLog *log.Logger) {
 	// Redirect to add trailing slash if missing
 	// (otherwise relative links don't work properly)
 	if !strings.HasSuffix(URL.Path, "/") {
@@ -271,7 +272,7 @@ func serveDirectory(URL *url.URL, path string, log *LogEntry, conn net.Conn, con
 	index_path := filepath.Join(path, "index."+config.GeminiExt)
 	index_info, err := os.Stat(index_path)
 	if err == nil && uint64(index_info.Mode().Perm())&0444 == 0444 {
-		serveFile(index_path, log, conn, config, errorLogEntries)
+		serveFile(index_path, log, conn, config, errorLog)
 		// Serve a generated listing
 	} else {
 		conn.Write([]byte("20 text/gemini\r\n"))
@@ -280,7 +281,7 @@ func serveDirectory(URL *url.URL, path string, log *LogEntry, conn net.Conn, con
 	}
 }
 
-func serveFile(path string, log *LogEntry, conn net.Conn, config Config, errorLog chan string) {
+func serveFile(path string, log *LogEntry, conn net.Conn, config Config, errorLog *log.Logger) {
 	// Get MIME type of files
 	ext := filepath.Ext(path)
 	var mimeType string

@@ -6,7 +6,6 @@ import (
 	"log"
 	"os"
 	"strconv"
-	"time"
 )
 
 func main() {
@@ -32,8 +31,11 @@ func main() {
 		log.Fatal(err)
 	}
 	defer errorLogFile.Close()
+	errorLog := log.New(errorLogFile, "", log.Ldate | log.Ltime)
+
 	accessLogFile, err := os.OpenFile(config.AccessLog, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
+		errorLog.Println("Error opening access log file: " + err.Error())
 		log.Fatal(err)
 	}
 	defer accessLogFile.Close()
@@ -41,6 +43,7 @@ func main() {
 	// Read TLS files, create TLS config
 	cert, err := tls.LoadX509KeyPair(config.CertPath, config.KeyPath)
 	if err != nil {
+		errorLog.Println("Error loading TLS keypair: " + err.Error())
 		log.Fatal(err)
 	}
 	tlscfg := &tls.Config{
@@ -52,6 +55,7 @@ func main() {
 	// Create TLS listener
 	listener, err := tls.Listen("tcp", ":"+strconv.Itoa(config.Port), tlscfg)
 	if err != nil {
+		errorLog.Println("Error creating TLS listener: " + err.Error())
 		log.Fatal(err)
 	}
 	defer listener.Close()
@@ -64,21 +68,15 @@ func main() {
 			writeLogEntry(accessLogFile, entry)
 		}
 	}()
-	errorLogEntries := make(chan string, 10)
-	go func() {
-		for {
-			message := <-errorLogEntries
-			errorLogFile.WriteString(time.Now().Format(time.RFC3339) + " " + message + "\n")
-		}
-	}()
 
 	// Infinite serve loop
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
+			errorLog.Println("Error accepting connection: " + err.Error())
 			log.Fatal(err)
 		}
-		go handleGeminiRequest(conn, config, accessLogEntries, errorLogEntries)
+		go handleGeminiRequest(conn, config, accessLogEntries, errorLog)
 	}
 
 }
