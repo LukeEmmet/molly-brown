@@ -17,7 +17,7 @@ func main() {
 	flag.Parse()
 	if conf_file == "" {
 		_, err := os.Stat("/etc/molly.conf")
-		if !os.IsNotExist(err) {
+		if err == nil {
 			conf_file = "/etc/molly.conf"
 		}
 	}
