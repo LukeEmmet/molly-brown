@@ -224,6 +224,18 @@ directory listing:
 Molly Brown supports dynamically generated content using an adaptation
 of the CGI standard, and also the SCGI standard.
 
+The `stdout` of CGI processes will be sent verbatim as the response to
+the client, and CGI applications are responsible for generating their
+own response headers.  CGI processes must terminate naturally within
+10 seconds of being spawned to avoid being killed.  Details about the
+request are available to CGI applications through environment
+variables, generally following RFC 3875.  In particular, note that if
+a request URL includes components after the path to an executable
+(e.g. `cgi-bin/script.py/foo/bar/baz`) then the environment variable
+`SCRIPT_PATH` will contain the part of the URL path mapping to the
+executable (e.g. `/var/gemini/cgi-bin/scripty.py`) while the variable
+`PATH_INFO` will contain the remainder (e.g. `foo/bar/baz`).
+
 It is very important to be aware that programs written in Go are
 *unable* to reliably change their UID once started, due to how
 goroutines are implemented on unix systems.  As an unavoidable
@@ -236,18 +248,23 @@ applications, ideally only applications you have carefully written
 yourself.  Allowing untrusted users to upload arbitrary executable
 files into a CGI path is a serious security vulnerability.
 
-SCGI applications must be started separately, and as such can run e.g.
-as their own user and/or chrooted into their own filesystem, and as
-such are less of a security issue.
+SCGI applications must be started separately (i.e. Molly Brown expects
+them to already be running and will not attempt to start them itself),
+and as such they can run e.g. as their own user and/or chrooted into
+their own filesystem, meaning that they are less of a security threat
+in addition to avoiding the overhead of process startup, database
+connection etc. on each request.
 
-* `CGIPaths`: A list of path regexs.  Any request which maps to a
-  world-executable file contained in a directory which matches one of
-  the regexs in this list will be executed and its standard output
-  will be sent as the response to the client.  CGI applications are
-  responsible for generating their own response headers, and must
-  terminate within 10 seconds of being spawned to avoid being killed.
-  Details about the request are available to CGI applications through
-  environment variables.
+* `CGIPaths`: A list of filesystem paths, within which
+  world-executable files will be run as CGI processes.  The paths act
+  as prefixes, i.e. if `/var/gemini/cgi-bin` is listed then
+  `/var/gemini/cgi-bin/script.py` and
+  `/var/gemini/cgi-bin/subdir/subsubdir/script.py` will both be run.
+  The paths may include basic wildcard characters, where `?` matches a
+  single non-separator character and `*` matches a sequence of them -
+  if wildcards are used, the path should *not* end in a trailing slash
+  - this appears to be a peculiarity of the Go standard library's
+  `filepath.Glob` function.
 * `SCGIPaths`: In this section of the config file, keys are path
   regexs and values are paths to unix domain sockets.  Any request
   whose path matches one of the regexs will cause an SCGI request to

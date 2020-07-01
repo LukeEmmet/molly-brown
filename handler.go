@@ -91,9 +91,17 @@ func handleGeminiRequest(conn net.Conn, config Config, accessLogEntries chan Log
 	}
 
 	// Check whether this URL is in a configured CGI path
+	var cgiPaths []string
 	for _, cgiPath := range config.CGIPaths {
-		inCGIPath, err := regexp.Match(cgiPath, []byte(path))
-		if err == nil && inCGIPath {
+		expandedPaths, err := filepath.Glob(cgiPath)
+		if err != nil {
+			errorLogEntries <- "Error expanding CGI path glob " + cgiPath + ": " + err.Error()
+			continue
+		}
+		cgiPaths = append(cgiPaths, expandedPaths...)
+	}
+	for _, cgiPath := range cgiPaths {
+		if strings.HasPrefix(path, cgiPath) {
 			handleCGI(config, path, cgiPath, URL, &log, errorLogEntries, conn)
 			if log.Status != 0 {
 				return

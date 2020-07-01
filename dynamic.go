@@ -9,40 +9,30 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
 )
 
 func handleCGI(config Config, path string, cgiPath string, URL *url.URL, log *LogEntry, errorLog chan string, conn net.Conn) {
-	// Attempt to find the shortest leading part of path which maps to an executable file while still matching cgiPath
-	// If we find such, call it script_path, and everything after it path_info
+	// Find the shortest leading part of path which maps to an executable file.
+	// Call this part scriptPath, and everything after it pathInfo.
 	components := strings.Split(path, "/")
-	script_path := ""
-	path_info := ""
+	scriptPath := ""
+	pathInfo := ""
 	matched := false
 	for i := 0; i <= len(components); i++ {
-		script_path = strings.Join(components[0:i], "/")
-		path_info = strings.Join(components[i:], "/")
-		if !strings.HasPrefix(script_path, config.DocBase) {
+		scriptPath = strings.Join(components[0:i], "/")
+		pathInfo = strings.Join(components[i:], "/")
+		if !strings.HasPrefix(scriptPath, cgiPath) {
 			continue
 		}
-		inCGIPath, err := regexp.Match(cgiPath, []byte(path))
+		info, err := os.Stat(scriptPath)
 		if err != nil {
 			break
-		}
-		if !inCGIPath {
+		} else if info.IsDir() {
 			continue
-		}
-		info, err := os.Stat(script_path)
-		if err != nil {
-			break
-		}
-		if info.IsDir() {
-			continue
-		}
-		if info.Mode().Perm()&0111 == 0111 {
+		} else if info.Mode().Perm()&0111 == 0111 {
 			matched = true
 			break
 		}
@@ -54,12 +44,12 @@ func handleCGI(config Config, path string, cgiPath string, URL *url.URL, log *Lo
 	}
 
 	// Prepare environment variables
-	vars := prepareCGIVariables(config, URL, conn, script_path, path_info)
+	vars := prepareCGIVariables(config, URL, conn, scriptPath, pathInfo)
 
 	// Spawn process
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, script_path)
+	cmd := exec.CommandContext(ctx, scriptPath)
 	cmd.Env = []string{}
 	for key, value := range vars {
 		cmd.Env = append(cmd.Env, key+"="+value)
