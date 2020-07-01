@@ -90,6 +90,15 @@ func handleGeminiRequest(conn net.Conn, config Config, accessLogEntries chan Log
 		return
 	}
 
+	// Check whether this URL is mapped to an SCGI app
+	for scgi_url, scgi_socket := range config.SCGIPaths {
+		matched, err := regexp.Match(scgi_url, []byte(URL.Path))
+		if matched && err == nil {
+			handleSCGI(scgi_socket, config, URL, &log, conn)
+			return
+		}
+	}
+
 	// Check whether this URL is in a configured CGI path
 	var cgiPaths []string
 	for _, cgiPath := range config.CGIPaths {
@@ -106,15 +115,6 @@ func handleGeminiRequest(conn net.Conn, config Config, accessLogEntries chan Log
 			if log.Status != 0 {
 				return
 			}
-		}
-	}
-
-	// Check whether this URL is mapped to an SCGI app
-	for scgi_url, scgi_socket := range config.SCGIPaths {
-		matched, err := regexp.Match(scgi_url, []byte(URL.Path))
-		if matched && err == nil {
-			handleSCGI(scgi_socket, config, URL, &log, conn)
-			return
 		}
 	}
 
