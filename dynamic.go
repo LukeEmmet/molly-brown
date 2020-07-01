@@ -73,7 +73,7 @@ func handleCGI(config Config, path string, cgiPath string, URL *url.URL, log *Lo
 	header, _, err := bufio.NewReader(strings.NewReader(string(response))).ReadLine()
 	status, err2 := strconv.Atoi(strings.Fields(string(header))[0])
 	if err != nil || err2 != nil {
-		errorLog.Println("Unable to parse first line of output from CGI process " + path + " as valid Gemini response header.")
+		errorLog.Println("Unable to parse first line of output from CGI process " + path + " as valid Gemini response header.  Line was: " + string(header))
 		conn.Write([]byte("42 CGI error!\r\n"))
 		log.Status = 42
 		return
@@ -83,11 +83,12 @@ func handleCGI(config Config, path string, cgiPath string, URL *url.URL, log *Lo
 	conn.Write(response)
 }
 
-func handleSCGI(URL *url.URL, scgiPath string, scgiSocket string, config Config, log *LogEntry, conn net.Conn) {
+func handleSCGI(URL *url.URL, scgiPath string, scgiSocket string, config Config, log *LogEntry, errorLog *log.Logger, conn net.Conn) {
 
 	// Connect to socket
 	socket, err := net.Dial("unix", scgiSocket)
 	if err != nil {
+		errorLog.Println("Error connecting to SCGI socket " + scgiSocket + ": " + err.Error())
 		conn.Write([]byte("42 Error connecting to SCGI service!\r\n"))
 		log.Status = 42
 		return
@@ -119,6 +120,7 @@ func handleSCGI(URL *url.URL, scgiPath string, scgiSocket string, config Config,
 				break
 			} else if !first {
 				// Err
+				errorLog.Println("Error reading from SCGI socket " + scgiSocket + ": " + err.Error())
 				conn.Write([]byte("42 Error reading from SCGI service!\r\n"))
 				log.Status = 42
 				return

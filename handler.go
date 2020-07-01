@@ -86,7 +86,7 @@ func handleGeminiRequest(conn net.Conn, config Config, accessLogEntries chan Log
 	}
 
 	// Check for redirects
-	handleRedirects(URL, config, conn, &log)
+	handleRedirects(URL, config, conn, &log, errorLog)
 	if log.Status != 0 {
 		return
 	}
@@ -94,7 +94,7 @@ func handleGeminiRequest(conn net.Conn, config Config, accessLogEntries chan Log
 	// Check whether this URL is mapped to an SCGI app
 	for scgiPath, scgiSocket := range config.SCGIPaths {
 		if strings.HasPrefix(URL.Path, scgiPath) {
-			handleSCGI(URL, scgiPath, scgiSocket, config, &log, conn)
+			handleSCGI(URL, scgiPath, scgiSocket, config, &log, errorLog, conn)
 			return
 		}
 	}
@@ -116,6 +116,7 @@ func handleGeminiRequest(conn net.Conn, config Config, accessLogEntries chan Log
 		log.Status = 51
 		return
 	} else if err != nil {
+		errorLog.Println("Error getting info for file " + path + ": " + err.Error())
 		conn.Write([]byte("40 Temporary failure!\r\n"))
 		log.Status = 40
 		return
@@ -239,16 +240,17 @@ func parseMollyFiles(path string, config *Config, errorLog *log.Logger) {
 	}
 }
 
-func handleRedirects(URL *url.URL, config Config, conn net.Conn, log *LogEntry) {
-	handleRedirectsInner(URL, config.TempRedirects, 30, conn, log)
-	handleRedirectsInner(URL, config.PermRedirects, 31, conn, log)
+func handleRedirects(URL *url.URL, config Config, conn net.Conn, log *LogEntry, errorLog *log.Logger) {
+	handleRedirectsInner(URL, config.TempRedirects, 30, conn, log, errorLog)
+	handleRedirectsInner(URL, config.PermRedirects, 31, conn, log, errorLog)
 }
 
-func handleRedirectsInner(URL *url.URL, redirects map[string]string, status int, conn net.Conn, log *LogEntry) {
+func handleRedirectsInner(URL *url.URL, redirects map[string]string, status int, conn net.Conn, log *LogEntry, errorLog *log.Logger) {
 	strStatus := strconv.Itoa(status)
 	for src, dst := range redirects {
 		compiled, err := regexp.Compile(src)
 		if err != nil {
+			errorLog.Println("Error compiling redirect regexp " + src + ": " + err.Error())
 			continue
 		}
 		if compiled.MatchString(URL.Path) {
@@ -308,6 +310,7 @@ func serveFile(path string, log *LogEntry, conn net.Conn, config Config, errorLo
 
 	contents, err := ioutil.ReadFile(path)
 	if err != nil {
+		errorLog.Println("Error reading file " + path + ": " + err.Error())
 		conn.Write([]byte("50 Error!\r\n"))
 		log.Status = 50
 		return
