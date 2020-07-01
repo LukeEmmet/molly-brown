@@ -32,7 +32,7 @@ func handleCGI(config Config, path string, cgiPath string, URL *url.URL, log *Lo
 			break
 		} else if info.IsDir() {
 			continue
-		} else if info.Mode().Perm()&0111 == 0111 {
+		} else if info.Mode().Perm()&0555 == 0555 {
 			matched = true
 			break
 		}
