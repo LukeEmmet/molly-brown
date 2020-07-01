@@ -249,7 +249,7 @@ func handleRedirectsInner(URL *url.URL, redirects map[string]string, status int,
 	for src, dst := range redirects {
 		compiled, err := regexp.Compile(src)
 		if err != nil {
-				continue
+			continue
 		}
 		if compiled.MatchString(URL.Path) {
 			URL.Path = compiled.ReplaceAllString(URL.Path, dst)
