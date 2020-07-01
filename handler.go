@@ -94,7 +94,7 @@ func handleGeminiRequest(conn net.Conn, config Config, accessLogEntries chan Log
 	for _, cgiPath := range config.CGIPaths {
 		inCGIPath, err := regexp.Match(cgiPath, []byte(path))
 		if err == nil && inCGIPath {
-			handleCGI(config, path, URL, &log, errorLogEntries, conn)
+			handleCGI(config, path, cgiPath, URL, &log, errorLogEntries, conn)
 			if log.Status != 0 {
 				return
 			}

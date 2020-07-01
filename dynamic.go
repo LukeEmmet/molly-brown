@@ -9,29 +9,63 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
 )
 
-func handleCGI(config Config, path string, URL *url.URL, log *LogEntry, errorLog chan string, conn net.Conn) {
-	// Make sure file is executable
-	info, err := os.Stat(path)
-	if info.Mode().Perm()&0111 != 0111 {
+func handleCGI(config Config, path string, cgiPath string, URL *url.URL, log *LogEntry, errorLog chan string, conn net.Conn) {
+	// Attempt to find the shortest leading part of path which maps to an executable file while still matching cgiPath
+	// If we find such, call it script_path, and everything after it path_info
+	components := strings.Split(path, "/")
+	script_path := ""
+	path_info := ""
+	matched := false
+	for i := 0; i <= len(components); i++ {
+		script_path = strings.Join(components[0:i], "/")
+		path_info = strings.Join(components[i:], "/")
+		if !strings.HasPrefix(script_path, config.DocBase) {
+			continue
+		}
+		inCGIPath, err := regexp.Match(cgiPath, []byte(path))
+		if err != nil {
+			break
+		}
+		if !inCGIPath {
+			continue
+		}
+		info, err := os.Stat(script_path)
+		if err != nil {
+			break
+		}
+		if info.IsDir() {
+			continue
+		}
+		if info.Mode().Perm()&0111 == 0111 {
+			matched = true
+			break
+		}
+	}
+	// If we didn't find a match, give up and let this request be handled as
+	// if it were a static file
+	if !matched {
 		return
 	}
 
+	// Prepare environment variables
+	vars := prepareCGIVariables(config, URL, conn, script_path, path_info)
+
+	// Spawn process
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, path)
-
-	// Set environment variables
-	vars := prepareCGIVariables(config, URL, conn, path)
+	cmd := exec.CommandContext(ctx, script_path)
 	cmd.Env = []string{}
 	for key, value := range vars {
 		cmd.Env = append(cmd.Env, key+"="+value)
 	}
 	response, err := cmd.Output()
+
 	if ctx.Err() == context.DeadlineExceeded {
 		errorLog <- "Terminating CGI process " + path + " due to exceeding 10 second runtime limit."
 		conn.Write([]byte("42 CGI process timed out!\r\n"))
@@ -118,10 +152,11 @@ func handleSCGI(socket_path string, config Config, URL *url.URL, log *LogEntry, 
 	}
 }
 
-func prepareCGIVariables(config Config, URL *url.URL, conn net.Conn, path string) map[string]string {
+func prepareCGIVariables(config Config, URL *url.URL, conn net.Conn, script_path string, path_info string) map[string]string {
 	vars := prepareGatewayVariables(config, URL, conn)
 	vars["GATEWAY_INTERFACE"] = "CGI/1.1"
-	vars["SCRIPT_PATH"] = path
+	vars["SCRIPT_PATH"] = script_path
+	vars["PATH_INFO"] = path_info
 	return vars
 }
 
@@ -129,12 +164,12 @@ func prepareSCGIVariables(config Config, URL *url.URL, conn net.Conn) map[string
 	vars := prepareGatewayVariables(config, URL, conn)
 	vars["SCGI"] = "1"
 	vars["CONTENT_LENGTH"] = "0"
+	vars["PATH_INFO"] = "/"
 	return vars
 }
 
 func prepareGatewayVariables(config Config, URL *url.URL, conn net.Conn) map[string]string {
 	vars := make(map[string]string)
-	vars["PATH_INFO"] = "/"
 	vars["QUERY_STRING"] = URL.RawQuery
 	vars["REMOTE_ADDR"] = conn.RemoteAddr().String()
 	vars["REQUEST_METHOD"] = ""
