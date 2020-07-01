@@ -67,7 +67,7 @@ func handleGeminiRequest(conn net.Conn, config Config, accessLogEntries chan Log
 
 	// Paranoid security measures:
 	// Fail ASAP if the URL has mapped to a sensitive file
-	if path == config.CertPath || path == config.KeyPath || path == config.AccessLog || path == config.ErrorLog {
+	if path == config.CertPath || path == config.KeyPath || path == config.AccessLog || path == config.ErrorLog || filepath.Base(path) == ".molly" {
 		conn.Write([]byte("51 Not found!\r\n"))
 		log.Status = 51
 		return
@@ -129,13 +129,6 @@ func handleGeminiRequest(conn net.Conn, config Config, accessLogEntries chan Log
 		log.Status = 40
 		return
 	} else if uint64(info.Mode().Perm())&0444 != 0444 {
-		conn.Write([]byte("51 Not found!\r\n"))
-		log.Status = 51
-		return
-	}
-
-	// Don't serve Molly files
-	if filepath.Base(path) == ".molly" {
 		conn.Write([]byte("51 Not found!\r\n"))
 		log.Status = 51
 		return
