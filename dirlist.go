@@ -12,11 +12,11 @@ import (
 	"strings"
 )
 
-func generateDirectoryListing(URL *url.URL, path string, config Config) string {
+func generateDirectoryListing(URL *url.URL, path string, config Config) (string, error) {
 	var listing string
 	files, err := ioutil.ReadDir(path)
 	if err != nil {
-		log.Fatal(err)
+		return listing, err
 	}
 	listing = "# Directory listing\n\n"
 	// Override with .mollyhead file
@@ -24,9 +24,10 @@ func generateDirectoryListing(URL *url.URL, path string, config Config) string {
 	_, err = os.Stat(header_path)
 	if err == nil {
 		header, err := ioutil.ReadFile(header_path)
-		if err == nil {
-			listing = string(header)
+		if err != nil {
+			return listing, err
 		}
+		listing = string(header)
 	}
 	// Do "up" link first
 	if URL.Path != "/" {
@@ -62,7 +63,7 @@ func generateDirectoryListing(URL *url.URL, path string, config Config) string {
 		}
 		listing += fmt.Sprintf("=> %s %s\n", url.PathEscape(file.Name()), generatePrettyFileLabel(file, path, config))
 	}
-	return listing
+	return listing, nil
 }
 
 func generatePrettyFileLabel(info os.FileInfo, path string, config Config) string {
