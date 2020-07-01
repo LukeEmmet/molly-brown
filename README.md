@@ -117,8 +117,9 @@ it on system boot.
 #### Systemd
 
 An example systemd unit file for Molly Brown, named 
-`molly-brown.service.example`, can be found in the source directory.
-After copying this file to `/etc/systemd/system/molly-brown.service`
+`molly-brown.service.example`, can be found in the `contrib/init`
+directory of the Molly Brown source directory.  After copying this
+file to `/etc/systemd/system/molly-brown.service`
 or `/usr/lib/systemd/system/molly-brown.service` (consult your
 system's documentation for the appropriate choice) and making any
 necessary changes for your environment, you can run the follow
@@ -133,7 +134,11 @@ automatically on system boot.
 
 #### OpenRC
 
-Instructions coming soon.
+An example OpenRC initscript for Molly Brown, named
+`molly-brown.openrc.example`, can be found in the `contrib/init`
+directory of the Molly Brown source directory.
+
+More detailed instructions on OpenRC setup are welcome!
 
 ## Configuration Options
 

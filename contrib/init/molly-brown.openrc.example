@@ -1,0 +1,12 @@
+#!/sbin/openrc-run
+
+command="/usr/sbin/molly-brown"
+command_user="gemini"
+command_background="yes"
+pidfile="/run/$RC_SVCNAME/$RC_SVCNAME.pid"
+
+
+start_pre() {
+    checkpath --directory --owner $command_user:$command_user --mode 0775 \
+    /run/$RC_SVCNAME /var/log/molly
+}
