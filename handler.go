@@ -248,19 +248,21 @@ func parseMollyFiles(path string, config *Config, errorLogEntries chan string) {
 }
 
 func handleRedirects(URL *url.URL, config Config, conn net.Conn, log *LogEntry) {
-	for src, dst := range config.TempRedirects {
-		if URL.Path == src {
-			URL.Path = dst
-			conn.Write([]byte("30 " + URL.String() + "\r\n"))
-			log.Status = 30
-			return
+	handleRedirectsInner(URL, config.TempRedirects, 30, conn, log)
+	handleRedirectsInner(URL, config.PermRedirects, 31, conn, log)
+}
+
+func handleRedirectsInner(URL *url.URL, redirects map[string]string, status int, conn net.Conn, log *LogEntry) {
+	strStatus := strconv.Itoa(status)
+	for src, dst := range redirects {
+		compiled, err := regexp.Compile(src)
+		if err != nil {
+				continue
 		}
-	}
-	for src, dst := range config.PermRedirects {
-		if URL.Path == src {
-			URL.Path = dst
-			conn.Write([]byte("31 " + URL.String() + "\r\n"))
-			log.Status = 31
+		if compiled.MatchString(URL.Path) {
+			URL.Path = compiled.ReplaceAllString(URL.Path, dst)
+			conn.Write([]byte(strStatus + " " + URL.String() + "\r\n"))
+			log.Status = status
 			return
 		}
 	}

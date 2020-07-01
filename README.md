@@ -206,12 +206,16 @@ directory listing:
 
 ### Redirects
 
-* `TempRedirects`: In this section of the config file, keys and values
-  are both path strings.  If the path component of a received request
-  matches one of the keys, Molly Brown will serve a redirect to the
-  corresponding value, using status code 30.  Note that currently
-  redirects cannot be specified using regular exressions, only literal
-  path strings.
+* `TempRedirects`: In this section of the config file, keys are
+  regular expressions which the server will attempt to match against
+  the path component if incoming request URLs.  If a match is found,
+  Molly Brown will serve a redirect to a new URL derived by replacing
+  the path component with the value corresponding to the matched key.
+  Within the replacement values, $1, $2, etc. will be replaced by the
+  first, second, etc. submatch in the regular expression.  Named
+  captures can also be used for more sophisticated redirect logic -
+  see the documentation for the Go standard library's `regexp` package
+  for full details.
 * `PermRedirects`: As per `TempRedirects` above, but Molly Brown will
   use the 31 status code instead of 30.
 
