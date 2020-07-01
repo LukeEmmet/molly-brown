@@ -252,8 +252,8 @@ SCGI applications must be started separately (i.e. Molly Brown expects
 them to already be running and will not attempt to start them itself),
 and as such they can run e.g. as their own user and/or chrooted into
 their own filesystem, meaning that they are less of a security threat
-in addition to avoiding the overhead of process startup, database
-connection etc. on each request.
+than CGI applications (in addition to avoiding the overhead of process
+startup, database connection etc. on each request).
 
 * `CGIPaths`: A list of filesystem paths, within which
   world-executable files will be run as CGI processes.  The paths act
@@ -265,13 +265,14 @@ connection etc. on each request.
   if wildcards are used, the path should *not* end in a trailing slash
   - this appears to be a peculiarity of the Go standard library's
   `filepath.Glob` function.
-* `SCGIPaths`: In this section of the config file, keys are path
-  regexs and values are paths to unix domain sockets.  Any request
-  whose path matches one of the regexs will cause an SCGI request to
-  be sent to the corresponding domain socket, and anything sent back
-  from a program listening on the other end of the socket will be send
-  as the response to the client.  SCGI applications are responsible
-  for generating their own response headers.
+* `SCGIPaths`: In this section of the config file, keys are URL path
+  prefixes and values are filesystem paths to unix domain sockets.
+  Any request for a URL whose path begins with one of the specified
+  prefixes will cause an SCGI request to be sent to the corresponding
+  domain socket.  Anything sent back from a program listening on the
+  other end of the socket will be sent as the response to the client.
+  SCGI applications are responsible for generating their own response
+  headers.
 
 ### Certificate zones
 

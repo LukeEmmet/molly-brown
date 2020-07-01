@@ -91,10 +91,9 @@ func handleGeminiRequest(conn net.Conn, config Config, accessLogEntries chan Log
 	}
 
 	// Check whether this URL is mapped to an SCGI app
-	for scgi_url, scgi_socket := range config.SCGIPaths {
-		matched, err := regexp.Match(scgi_url, []byte(URL.Path))
-		if matched && err == nil {
-			handleSCGI(scgi_socket, config, URL, &log, conn)
+	for scgiPath, scgiSocket := range config.SCGIPaths {
+		if strings.HasPrefix(URL.Path, scgiPath) {
+			handleSCGI(URL, scgiPath, scgiSocket, config, &log, conn)
 			return
 		}
 	}

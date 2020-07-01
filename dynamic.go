@@ -82,10 +82,10 @@ func handleCGI(config Config, path string, cgiPath string, URL *url.URL, log *Lo
 	conn.Write(response)
 }
 
-func handleSCGI(socket_path string, config Config, URL *url.URL, log *LogEntry, conn net.Conn) {
+func handleSCGI(URL *url.URL, scgiPath string, scgiSocket string, config Config, log *LogEntry, conn net.Conn) {
 
 	// Connect to socket
-	socket, err := net.Dial("unix", socket_path)
+	socket, err := net.Dial("unix", scgiSocket)
 	if err != nil {
 		conn.Write([]byte("42 Error connecting to SCGI service!\r\n"))
 		log.Status = 42
@@ -94,7 +94,7 @@ func handleSCGI(socket_path string, config Config, URL *url.URL, log *LogEntry, 
 	defer socket.Close()
 
 	// Send variables
-	vars := prepareSCGIVariables(config, URL, conn)
+	vars := prepareSCGIVariables(config, URL, scgiPath, conn)
 	length := 0
 	for key, value := range vars {
 		length += len(key)
@@ -150,11 +150,12 @@ func prepareCGIVariables(config Config, URL *url.URL, conn net.Conn, script_path
 	return vars
 }
 
-func prepareSCGIVariables(config Config, URL *url.URL, conn net.Conn) map[string]string {
+func prepareSCGIVariables(config Config, URL *url.URL, scgiPath string, conn net.Conn) map[string]string {
 	vars := prepareGatewayVariables(config, URL, conn)
 	vars["SCGI"] = "1"
 	vars["CONTENT_LENGTH"] = "0"
-	vars["PATH_INFO"] = "/"
+	vars["SCRIPT_PATH"] = scgiPath
+	vars["PATH_INFO"] = URL.Path[len(scgiPath):]
 	return vars
 }
 
