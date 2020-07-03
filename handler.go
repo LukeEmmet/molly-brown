@@ -141,7 +141,7 @@ func readRequest(conn net.Conn, log *LogEntry, errorLog *log.Logger) (*url.URL, 
 		log.Status = 59
 		return nil, errors.New("Request too long")
 	} else if err != nil {
-		errorLog.Println("Error reading request: " + err.Error())
+		errorLog.Println("Error reading request from " + conn.RemoteAddr().String() + ": " + err.Error())
 		conn.Write([]byte("40 Unknown error reading request!\r\n"))
 		log.Status = 40
 		return nil, errors.New("Error reading request")
