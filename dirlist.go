@@ -88,7 +88,7 @@ func generatePrettyFileLabel(info os.FileInfo, path string, config Config) strin
 		name = readHeading(path, info)
 	}
 	if len(name) > 40 {
-		name = info.Name()[:36] + "..."
+		name = name[:36] + "..."
 	}
 	if info.IsDir() {
 		name += "/"
