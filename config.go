@@ -97,6 +97,35 @@ func getConfig(filename string) (Config, error) {
 }
 
 func parseMollyFiles(path string, config *Config, errorLog *log.Logger) {
+	// Replace config variables which use pointers with new ones,
+	// so that changes made here aren't reflected everywhere.
+	newTempRedirects := make(map[string]string)
+	for key, value := range config.TempRedirects {
+		newTempRedirects[key] = value
+	}
+	config.TempRedirects = newTempRedirects
+	newPermRedirects := make(map[string]string)
+	for key, value := range config.PermRedirects {
+		newPermRedirects[key] = value
+	}
+	config.PermRedirects = newPermRedirects
+	newMimeOverrides := make(map[string]string)
+	for key, value := range config.MimeOverrides {
+		newMimeOverrides[key] = value
+	}
+	config.MimeOverrides = newMimeOverrides
+	newCertificateZones := make(map[string][]string)
+	for key, value := range config.CertificateZones {
+		newCertificateZones[key] = value
+	}
+	config.CertificateZones = newCertificateZones
+	// Initialise MollyFile using main Config
+	var mollyFile MollyFile
+	mollyFile.GeminiExt = config.GeminiExt
+	mollyFile.DefaultLang = config.DefaultLang
+	mollyFile.DirectorySort = config.DirectorySort
+	mollyFile.DirectoryReverse = config.DirectoryReverse
+	mollyFile.DirectoryTitles = config.DirectoryTitles
 	// Build list of directories to check
 	var dirs []string
 	dirs = append(dirs, path)
@@ -108,13 +137,6 @@ func parseMollyFiles(path string, config *Config, errorLog *log.Logger) {
 		dirs = append(dirs, subpath)
 		path = subpath
 	}
-	// Initialise MollyFile using main Config
-	var mollyFile MollyFile
-	mollyFile.GeminiExt = config.GeminiExt
-	mollyFile.DefaultLang = config.DefaultLang
-	mollyFile.DirectorySort = config.DirectorySort
-	mollyFile.DirectoryReverse = config.DirectoryReverse
-	mollyFile.DirectoryTitles = config.DirectoryTitles
 	// Parse files in reverse order
 	for i := len(dirs) - 1; i >= 0; i-- {
 		dir := dirs[i]
