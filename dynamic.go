@@ -64,7 +64,10 @@ func handleCGI(config Config, path string, cgiPath string, URL *url.URL, log *Lo
 		return
 	}
 	if err != nil {
-		errorLog.Println("Error starting CGI executable " + path + ": " + err.Error())
+		errorLog.Println("Error running CGI program " + path + ": " + err.Error())
+		if err, ok := err.(*exec.ExitError); ok {
+			errorLog.Println("↳ stderr output: " + string(err.Stderr))
+		}
 		conn.Write([]byte("42 CGI error!\r\n"))
 		log.Status = 42
 		return
