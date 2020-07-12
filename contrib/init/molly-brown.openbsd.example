@@ -1,0 +1,13 @@
+#!/bin/ksh
+
+daemon='/usr/sbin/molly-brown -c /etc/molly/molly.conf &'
+
+. /etc/rc.d/rc.subr
+
+rc_reload=NO
+
+rc_stop() {
+	pkill molly-brown
+}
+
+rc_cmd $1

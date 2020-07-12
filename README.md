@@ -48,8 +48,9 @@ The follow features are planned for the future:
 
 Molly Brown is known to run on:
 
-* GNU/Linux
 * FreeBSD
+* GNU/Linux
+* OpenBSD
 * 9Front
 
 Please let us know if you get it to work on some other platform!
@@ -139,6 +140,14 @@ An example OpenRC initscript for Molly Brown, named
 directory of the Molly Brown source directory.
 
 More detailed instructions on OpenRC setup are welcome!
+
+#### OpenBSD
+
+An example OpenBSD initscript for Molly Brown, named
+`molly-brown.openbsd.example`, can be found in the `contrib/init`
+directory of the Molly Brown source directory.
+
+More detailed instructions on OpenBSD setup are welcome!
 
 ## Configuration Options
 
