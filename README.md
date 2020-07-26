@@ -192,7 +192,7 @@ examples of the appropriate syntax.
   regexs and values are MIME types.  If the path of a file which is
   about to be served matches one the regexs, the corresponding MIME type
   will be used instead of one inferred from the filename extension.
-* `DefaultLanguage`: If this option is set, it will be served as the
+* `DefaultLang`: If this option is set, it will be served as the
   `lang` parameter of the MIME type for all `text/gemini` content.
 
 ### Directory listings
