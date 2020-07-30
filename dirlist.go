@@ -60,7 +60,13 @@ func generateDirectoryListing(URL *url.URL, path string, config Config) (string,
 		if uint64(file.Mode().Perm())&0444 != 0444 {
 			continue
 		}
-		listing += fmt.Sprintf("=> %s %s\n", url.PathEscape(file.Name()), generatePrettyFileLabel(file, path, config))
+		// Make sure links to directories have a trailing slash,
+		// to avoid needless redirects
+		relativeUrl := url.PathEscape(file.Name())
+		if file.IsDir() {
+			relativeUrl += "/"
+		}
+		listing += fmt.Sprintf("=> %s %s\n", relativeUrl, generatePrettyFileLabel(file, path, config))
 	}
 	return listing, nil
 }
