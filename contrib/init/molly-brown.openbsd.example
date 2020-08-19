@@ -1,6 +1,6 @@
 #!/bin/ksh
 
-daemon='/usr/sbin/molly-brown -c /etc/molly/molly.conf &'
+daemon='/usr/sbin/molly-brown -c /etc/molly.conf &'
 
 . /etc/rc.d/rc.subr
 

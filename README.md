@@ -145,9 +145,25 @@ More detailed instructions on OpenRC setup are welcome!
 
 An example OpenBSD initscript for Molly Brown, named
 `molly-brown.openbsd.example`, can be found in the `contrib/init`
-directory of the Molly Brown source directory.
+directory of the Molly Brown source directory. After copying this
+file to `/etc/rc.d/mollybrownd`, you can add the `mollybrownd`
+daemon to your system startup with `rcctl` or by manually adding
+`mollybrownd` to your `/etc/rc.conf.local` configuration. The
+following lines in `rc.conf.local` will autostart your
+`mollybrownd` daemon as the user `username`:
+```
+mollybrownd_user=username
+pkg_scripts=mollybrownd
+```
+Be sure that the user running your `mollybrownd` daemon has
+read access to `/etc/molly.conf` and all of the files and
+directories listed in `/etc/molly.conf`. That user will
+also need write access to the configured log file locations.
 
-More detailed instructions on OpenBSD setup are welcome!
+You can start your `mollybrownd` daemon with `rcctl`:
+```
+rcctl start mollybrownd
+```
 
 ## Configuration Options
 
